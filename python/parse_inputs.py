@@ -88,18 +88,19 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
                      (eco["q"] ** eco["t_calc"] - 1))                     
     
     eco["prChange"] = {}
-    eco["prChange"]["el"]   = sheet_eco.cell_value(4,1)
-    eco["prChange"]["gas"]  = sheet_eco.cell_value(5,1)
-    eco["prChange"]["eex"]  = sheet_eco.cell_value(6,1)
-    eco["prChange"]["infl"] = sheet_eco.cell_value(7,1)
+    eco["prChange"]["el"]     = sheet_eco.cell_value(4,1)
+    eco["prChange"]["gas"]    = sheet_eco.cell_value(5,1)
+    eco["prChange"]["pel"] = sheet_eco.cell_value(6,1)
+    eco["prChange"]["eex"]    = sheet_eco.cell_value(7,1)
+    eco["prChange"]["infl"]   = sheet_eco.cell_value(8,1)
     
-    eco["price_sell_el"] = sheet_eco.cell_value(8,1)
-    eco["energy_tax"]    = sheet_eco.cell_value(9,1)  # in €/kWh
+    eco["price_sell_el"] = sheet_eco.cell_value(9,1)
+    eco["energy_tax"]    = sheet_eco.cell_value(10,1)  # in €/kWh
         
     pC = eco["prChange"]
     eco["b"] = {key: ((1 - (pC[key] / eco["q"]) ** eco["t_calc"]) / 
                       (eco["q"] - pC[key]))
-                for key in pC.keys()}
+                       for key in pC.keys()}
     
     # Prices and tariff amount gradations
     eco["el"]  = {}
@@ -489,7 +490,6 @@ def _handle_sheet(sheet, dev, timesteps, days,
     results = {}
     
     # Define infinity
-    infinity = np.inf
     
     ones = np.ones((days, timesteps))
     
@@ -526,59 +526,48 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["c_inv_var"] = lin_reg[0] # Euro/kWh
         
     elif dev == "pellet":
+        
         c_inv       = np.array([sheet[i]["c_inv"] for i in keys])
         c_om        = np.array([sheet[i]["c_om"] for i in keys])
         heat_output = np.array([sheet[i]["Q_nom"] for i in keys])
-        eta         = np.mean([sheet[i]["eta"] for i in keys])
-                
+                        
         results["T_op"]    = np.mean([sheet[i]["T_op"] for i in keys])
         results["mod_lvl"] = np.mean([sheet[i]["mod_lvl"] for i in keys])
+        results["eta"]     = np.mean([sheet[i]["eta"] for i in keys])
 
         results["c_om_rel"]  = np.mean(c_om / c_inv)
         results["Q_nom_min"] = np.min(heat_output)
         results["Q_nom_max"] = np.max(heat_output)
         results["inno_ability"]  =  0
-        
-        # Boilers overall efficiency is equal to its thermal performance
-        # and assumed constant for all times
-        results["omega"] = ones * eta
-        
-        # The electrical efficiency (Q/P) is zero for infinite, as boilers
-        # do not require a significant amount of electricity
-        results["eta"] = ones * infinity
-        
+                
         # Regression: c_inv = slope * heat_output + intercept
         lin_reg = stats.linregress(x=heat_output, y=c_inv)
         results["c_inv_fix"] = lin_reg[1]
         results["c_inv_var"] = lin_reg[0]   # Euro/Watt
         
+        
     elif dev == "boiler":
+        
         c_inv       = np.array([sheet[i]["c_inv"] for i in keys])
         c_om        = np.array([sheet[i]["c_om"] for i in keys])
         heat_output = np.array([sheet[i]["Q_nom"] for i in keys])
-        eta         = np.mean([sheet[i]["eta"] for i in keys])
                 
-        results["T_op"]    = np.mean([sheet[i]["T_op"] for i in keys])
-        results["mod_lvl"] = np.mean([sheet[i]["mod_lvl"] for i in keys])
-
+        results["T_op"]      = np.mean([sheet[i]["T_op"] for i in keys])
+        results["mod_lvl"]   = np.mean([sheet[i]["mod_lvl"] for i in keys])
+        results["eta"]       = np.mean([sheet[i]["eta"] for i in keys])
+        
         results["c_om_rel"]  = np.mean(c_om / c_inv)
         results["Q_nom_min"] = np.min(heat_output)
         results["Q_nom_max"] = np.max(heat_output)
         
-        # Boilers overall efficiency is equal to its thermal performance
-        # and assumed constant for all times
-        results["omega"] = ones * eta
-        
-        # The electrical efficiency (Q/P) is zero for infinite, as boilers
-        # do not require a significant amount of electricity
-        results["eta"] = ones * infinity
-        
         # Regression: c_inv = slope * heat_output + intercept
         lin_reg = stats.linregress(x=heat_output, y=c_inv)
         results["c_inv_fix"] = lin_reg[1]
         results["c_inv_var"] = lin_reg[0]   # Euro/Watt
         
+        
     elif dev == "chp":
+        
         c_inv       = np.array([sheet[i]["c_inv"] for i in keys])
         c_om        = np.array([sheet[i]["c_om"] for i in keys])
         heat_output = np.array([sheet[i]["Q_nom"] for i in keys])
@@ -597,37 +586,32 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["therm_eff_bonus"]  =  1
         results["power_eff_bonus"]  =  0
         results["sigma"] = 1/np.mean(results["eta"])
-        
-        
+                
         # Regression: c_inv = slope * heat_output + intercept
         lin_reg = stats.linregress(x=heat_output, y=c_inv)
         results["c_inv_fix"] = lin_reg[1]
         results["c_inv_var"] = lin_reg[0]   # Euro/Watt
         
+        
     elif dev == "eh":
+        
         c_inv       = np.array([sheet[i]["c_inv"] for i in keys])
         c_om        = np.array([sheet[i]["c_om"] for i in keys])
         heat_output = np.array([sheet[i]["Q_nom"] for i in keys])
-        eta         = np.mean([sheet[i]["eta"] for i in keys])
 
         results["T_op"]    = np.mean([sheet[i]["T_op"] for i in keys])
         results["mod_lvl"] = np.mean([sheet[i]["mod_lvl"] for i in keys])
+        results["eta"]     = np.mean([sheet[i]["eta"] for i in keys])
         
         results["c_om_rel"]  = np.mean(c_om / c_inv)
         results["Q_nom_min"] = np.min(heat_output)
         results["Q_nom_max"] = np.max(heat_output)
         
-        # Electrical heaters do not require any gas energy (E), therefore
-        # omega has to be large
-        results["omega"] = ones * infinity
-        
-        # The effiency is defined like eta (Q/P)
-        results["eta"]   = ones * eta
-        
         # Regression: c_inv = slope * heat_output + intercept
         lin_reg = stats.linregress(x=heat_output, y=c_inv)
         results["c_inv_fix"] = lin_reg[1]
         results["c_inv_var"] = lin_reg[0]   # Euro/Watt
+        
         
     elif dev == "hp_air":
         
@@ -650,8 +634,6 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["T_op"]    = np.mean([sheet[i]["T_op"] for i in keys])
         results["mod_lvl"] = np.mean([sheet[i]["mod_lvl"] for i in keys])
         results["dT_max"]  = np.mean([sheet[i]["dT_max"] for i in keys]) 
-
-        results["omega"] = ones * infinity                      
         
         results["cop_a-7w35"] = np.mean([sheet[i]["cop_a-7w35"] for i in keys])
         results["cop_a2w35"]  = np.mean([sheet[i]["cop_a2w35"] for i in keys])
@@ -702,9 +684,7 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["T_op"]    = np.mean([sheet[i]["T_op"] for i in keys])
         results["mod_lvl"] = np.mean([sheet[i]["mod_lvl"] for i in keys])
         results["dT_max"]  = np.mean([sheet[i]["dT_max"] for i in keys])
-
-        results["omega"] = ones * infinity
-                       
+                      
         results["cop_a-7w35"] = np.mean([sheet[i]["cop_a-7w35"] for i in keys])
         results["cop_a2w35"]  = np.mean([sheet[i]["cop_a2w35"] for i in keys])
         results["cop_a7w35"]  = np.mean([sheet[i]["cop_a7w35"] for i in keys])
@@ -765,7 +745,6 @@ def _handle_sheet(sheet, dev, timesteps, days,
         eta_el   = eta_NOCT * (1 + results["gamma"] / 100 * 
                                (t_cell - results["t_NOCT"]))
         
-        results["eta_th"] = np.zeros((days, timesteps))
         results["eta_el"] = eta_el
         
         results["c_inv_fix"] = 0
@@ -781,13 +760,13 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["area_min"]  = np.min(area)
         
         results["T_op"] = np.mean([sheet[i]["T_op"] for i in keys])
+        
+        results["dT_max"] = 15#np.mean([sheet[i]["dT_max"] for i in keys])
 
         zero_loss    = np.mean([sheet[i]["zero_loss"] for i in keys])
         first_order  = np.mean([sheet[i]["first_order"] for i in keys])
         second_order = np.mean([sheet[i]["second_order"] for i in keys])
-        
-        results["eta_el"] = np.zeros((days, timesteps))
-        
+
         temperature_flow = 55
         temp_diff = temperature_flow - temperature_ambient
         eta_th = (zero_loss - 
@@ -958,6 +937,8 @@ def _read_sheet(sheet, device, timesteps):
             current_results["zero_loss"]    = sheet.cell_value(row, 5)
             current_results["first_order"]  = sheet.cell_value(row, 6)
             current_results["second_order"] = sheet.cell_value(row, 7)
+            
+            current_results["dT_max"]  = sheet.cell_value(row, 8)         
 
         elif device == "tes":
             current_results["c_inv"]    = sheet.cell_value(row, 1)

@@ -18,6 +18,7 @@ import python.read_basic as reader
 def building_optimization(building_type, building_age, location, 
                           household_size, electricity_demand, 
                           dhw_demand):
+
     #%% Read inputs
     
     raw_inputs = {}
@@ -48,7 +49,7 @@ def building_optimization(building_type, building_age, location,
     (inputs, nc, z) = clustering.cluster(inputs_clustering, 
                                          number_clusters,
                                          norm = 2,
-                                         mip_gap = 0.0,
+                                         mip_gap = 0.01,
                                          weights = [8,8,8,3,1,1,1,1,1])
                  
     # Determine time steps per day
@@ -93,6 +94,27 @@ def building_optimization(building_type, building_age, location,
     building = {}
     building["U-values"]   = scenarios[building_type][building_age]
     building["dimensions"] = buildings[building_type][building_age]
+    building["usable_roof"] = 0.4
+    
+    
+    #%%
+#    building["U-values"][0] = building["U-values"].pop("standard")
+#    building["U-values"][1] = building["U-values"].pop("retrofit")
+#    building["U-values"][2] = building["U-values"].pop("adv_retr")
+#    
+#    for i in building["U-values"].keys():
+#        building["U-values"][i][0] = building["U-values"][i].pop("GroundFloor")
+#        building["U-values"][i][1] = building["U-values"][i].pop("OuterWall")
+#        building["U-values"][i][2] = building["U-values"][i].pop("Rooftop")
+#        building["U-values"][i][3] = building["U-values"][i].pop("Window")
+#        
+#    building["dimensions"][0] = building["dimensions"]["GroundFloor"]
+#    building["dimensions"][1] = building["dimensions"]["OuterWall"]
+#    building["dimensions"][2] = building["dimensions"]["Rooftop"]
+#    building["dimensions"][3] = building["dimensions"]["Window"]
+     #%%
+     
+     
     ref_building = ref_bui.reference_building(building["dimensions"])
     
     #%% Store clustered input parameters
@@ -119,15 +141,15 @@ def building_optimization(building_type, building_age, location,
              "Bafa_hp": True,
              "Bafa_stc": True,
              "Bafa_pellet": True,
-             "kfw_eff_buildings" : True,
-             "kfw_single_mea" : True,
-             "HP tariff": True,
+             "kfw_eff_buildings" : False,
+             "kfw_single_mea" : False,
+             "HP tariff": False,
              "dhw_electric" : False,
              "New_Building": False,
              "MFH": False,
              "scenario": "free",
              "Design_heat_load" : False,
-             "store_start_vals" : True,
+             "store_start_vals" : False,
              "load_start_vals" : False,
              "filename_start_vals" :"start_values/" + building_type + "_" + building_age + "_start.csv"}
              
@@ -146,10 +168,10 @@ if __name__ == "__main__":
     # Building parameters: 
     building_type = "SFH"       # SFH, TH, MFH, AB
     
-    building_age  = "1958 1968" # 0 1859, 1860 1918, 1919 1948, 1949 1957, 1958 1968, 1969 1978, 
-                                # 1979 1983 1984 1994, 1995 2001, 2002 2009, 2010 2015, 2016 2100  
+    building_age  = "1979 1983" # 0 1859, 1860 1918, 1919 1948, 1949 1957, 1958 1968, 1969 1978, 
+                                # 1979 1983, 1984 1994, 1995 2001, 2002 2009, 2010 2015, 2016 2100  
     
-    location      = "Essen"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, Bad Marienberg, Kassel, Braunlage, 
+    location      = "Bremerhaven"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, Bad Marienberg, Kassel, Braunlage, 
                               # Chemnitz, Hof, Fichtelberg, Mannheim, Mühldorf, Stötten, Garmisch    
     
     #Household parameters: 
