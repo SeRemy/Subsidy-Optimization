@@ -71,10 +71,8 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
     solar   = ("pv", "stc")
     subsidy_devs = ("chp", "bat", "hp_air", "hp_geo", "stc", "pellet", "pv")
     
-#    building_components = ("Window","OuterWall","GroundFloor","Rooftop")
-#    restruc_scenarios   = ("standard", "retrofit", "adv_retr")
-    building_components = (0,1,2,3)
-    restruc_scenarios   = (0,1,2)
+    building_components = ("Window","OuterWall","GroundFloor","Rooftop")
+    restruc_scenarios   = ("standard", "retrofit", "adv_retr")
     
     kfw_standards       = ("kfw_eff_55","kfw_eff_70","kfw_eff_85",
                            "kfw_eff_100","kfw_eff_115")
@@ -96,7 +94,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         
         # Costs: There are cost-variables for investment, operation & maintenance,
         # demand costs (fuel costs) and fix costs for electricity and gas tariffs
-
+        
         c_inv  = {dev: model.addVar(vtype="C", name="c_inv_"+dev)
                  for dev in (list(devs.keys()) + list(building_components))}
                      
@@ -132,8 +130,15 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for d in days:
                 for t in time_steps:
                     timetag = "_"+str(d)+"_"+str(t)
+                    y[dev,d,t] = model.addVar(vtype="B", name="y_"+dev+"_"+timetag)
                     
-                    y[dev,d,t] = model.addVar(vtype="B", name="y_"+dev+"_"+timetag)    
+        y = {}  # Acitivation heater 
+        for d in days:
+            for t in time_steps:
+                timetag = "_"+str(d)+"_"+str(t)
+                for dev in heater:
+                    y[dev,d,t] = model.addVar(vtype="B", name="y_"+dev+"_"+timetag) 
+                y["stc",d,t] = model.addVar(vtype="B", name="y_"+"stc"+"_"+timetag) 
         
         # Capacities (thermal output, area, volume,...)
         capacity = {}
@@ -303,6 +308,13 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         
         pv_power = model.addVar(vtype="C", name = "pv_power")
         
+        #BAT         
+        b_pv_power = {}
+        lin_pv_power = {} 
+        for i in ("kfw", "eeg"):
+            lin_pv_power[i] = model.addVar(vtype="C", name = "lin_pv_power_" + i)
+            b_pv_power[i]   = model.addVar(vtype="B", name = "b_pv_power_" + i)
+
         #KWKG for CHP             
         kwkg_powerstages = ("50", "100", "250", "2000", "10000")
         
@@ -330,11 +342,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             lin_kwkg[powerstep] = model.addVar(vtype = "C", 
                                                 name = "lin_kwkg_" + powerstep,
                                                 lb = 0)
-        
-        #BAT
-        lin_pv_bat = model.addVar(vtype="C", name="lin_pv_bat")
-        lin_bat_sub = model.addVar(vtype="C", name="lin_bat_sub")
-        
+                
         #BAFA for MINI-CHP
         x_chp = {}
         for dev in ("mini","large"):
@@ -478,7 +486,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
 
 #%% Define Constraints
 
-        M = 100000
+        M = 10000
 
         # Differentiation between old and new buildings because of different 
         # regulations in the "Marktanreizprogramm" for HP and STC
@@ -879,7 +887,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 timetag = "_" + str(d) + "_" + str(t)
                 
-                model.addConstr(power[dev,d,t] <= area[dev] * 
+                model.addConstr(power[dev,d,t] == area[dev] * 
                                                   devs[dev]["eta_el"][d][t] *
                                                   eta_inverter *
                                                   clustered["solar_irrad"][d][t],
@@ -891,7 +899,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 timetag = "_" + str(d) + "_" + str(t)
 
-                model.addConstr(heat[dev,d,t] <= area[dev] * 
+                model.addConstr(heat[dev,d,t] == area[dev] * 
                                                  devs[dev]["eta_th"][d][t] *
                                                  clustered["solar_irrad"][d][t],
                                                  name="Solar_thermal_"
@@ -1113,7 +1121,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                                   devs[dev]["Q_nom_max"])                    
                             
         # Heat pump's operation depends on storage temperature
-        for dev in ("hp_geo", "hp_air"):
+        for dev in ("hp_geo", "hp_air", "stc"):
             for d in days:
                 for t in time_steps:
                     timetag = "_" + str(d) + "_" + str(t)
@@ -1169,11 +1177,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                          for n in x_tariff["el"][tar].keys()) 
                          for tar in el_tariffs)
                
-        emissions_feedin = 0.569 * sum(clustered["weights"][d] * dt * 
-                                   sum(sum(p_sell[dev,d,t] 
-                                   for dev in ("pv","bat","chp"))
-                                   for t in time_steps)
-                                   for d in days)
+        emissions_feedin = 0.566 * sum(clustered["weights"][d] * dt * 
+                                  sum(sum(p_sell[dev,d,t] 
+                                  for dev in ("pv","bat","chp"))
+                                  for t in time_steps)
+                                  for d in days)
         
         model.addConstr(emission == emission_pellet + emissions_gas + 
                                     emissions_grid - emissions_feedin)
@@ -1208,6 +1216,10 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                             sum(p_sell_pv[n] * sub_par["eeg"][n]
                                             for n in pv_powerstages),
                                             name="Feed_in_rev_"+dev)
+                                            
+            model.addConstr(subsidy[dev] <= M * b_pv_power["eeg"])
+            
+            model.addConstr(b_pv_power["eeg"] <= x["pv"])
             
             # If EEG is available: subsidy instead of revenue
             model.addConstr(revenue[dev] == 0)
@@ -1218,8 +1230,63 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             model.addConstr(revenue[dev] == eco["b"]["eex"] * eco["crf"] *
                                             eco["price_sell_el"] *
                                             p_sell_pv["total"],
-                                            name="Feed_in_rev_"+dev)                                               
-                                    
+                                            name="Feed_in_rev_"+dev)    
+
+        #%% KfW-Subsidy for Battery
+        
+        dev = "bat"
+        if options["kfw_battery"]:
+            model.addConstr(subsidy[dev] <= eco["crf"] * 
+                                            sub_par["bat"]["share_max"] *                            
+                                            sub_par["bat"]["sub_bat_max"] *                                             
+                                            pv_power,                                            
+                                            name="Bat_Subsidies_1")
+            
+            model.addConstr(subsidy[dev] <= c_inv["pv"] + c_inv["bat"] -                            
+                                            eco["crf"] * 
+                                            sub_par["bat"]["share_max"] *                                                                                          
+                                            sub_par["bat"]["sub_bat"] *                                              
+                                            pv_power,            
+                                            name="Bat_Subsidies_2")
+            
+            model.addConstr(subsidy[dev] <= M * b_pv_power["kfw"])
+            
+            model.addConstr(b_pv_power["kfw"] <= x["bat"])
+        
+        else:
+            model.addConstr(subsidy[dev] == 0)
+          
+            
+        #%% For EEG and KfW-Bat program:
+        
+        # Bestrict sold electricity from PV to 70% of the rated power without
+        # battery storage and 50% with storage system       
+        
+        dev = "pv"        
+        for d in days:
+            for t in time_steps:                                                
+                model.addConstr(p_sell["pv",d,t] + 
+                                p_sell["bat",d,t] <= devs[dev]["p_nom"]/
+                                                     devs[dev]["area_mean"] * 
+                                                     (area[dev] - 0.3 * 
+                                                      lin_pv_power["eeg"]))
+
+        for d in days:
+            for t in time_steps:                                                
+                model.addConstr(p_sell["pv",d,t] + 
+                                p_sell["bat",d,t] <= devs[dev]["p_nom"]/
+                                                     devs[dev]["area_mean"] * 
+                                                     (area[dev] - 0.5 * 
+                                                      lin_pv_power["kfw"]))
+
+        # linearization of b_pv_power[i] * area["pv"]
+        for i in ("eeg", "kfw"):  
+            model.addConstr(lin_pv_power[i] <= A_max * b_pv_power[i])
+            model.addConstr(lin_pv_power[i] >= devs[dev]["area_min"] * b_pv_power[i])
+            model.addConstr(area[dev] - lin_pv_power[i] >= 0)
+            model.addConstr(area[dev] - lin_pv_power[i] <= (1 - b_pv_power[i]) * A_max)
+        
+                                                                               
         #%% CHP        
         dev = "chp"   
         
@@ -1287,7 +1354,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             model.addConstr(sub["bafa"] == 0)
                       
         #KWKG for CHP 
-        if options["KWKG"]:        
+        if options["KWKG"]:
             
             # Differentiation of funding rate depending on installed CHP-power                  
             model.addConstr(x[dev] >= sum(b_kwkg[n] for n in b_kwkg.keys()))
@@ -1313,13 +1380,13 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                    for n in kwkg_powerstages))
 
             model.addConstr(sub["kwkg"] <= eco["crf"] * eco["b"]["eex"] * 
-                                            (sum(p_sell_chp[n] * 
-                                             sub_par["kwkg"]["sell_"+n]
-                                             for n in kwkg_powerstages) + 
-                                             sum(p_use_chp[n] * 
-                                             sub_par["kwkg"]["self_"+n] 
-                                             for n in ("50", "100"))),
-                                             name="Sub_var_chp")  
+                                           (sum(p_sell_chp[n] * 
+                                            sub_par["kwkg"]["sell_"+n]
+                                            for n in kwkg_powerstages) + 
+                                            sum(p_use_chp[n] * 
+                                            sub_par["kwkg"]["self_"+n] 
+                                            for n in ("50", "100"))),
+                                            name="Sub_var_chp")  
 
             # Restriction because of annual operating hours
             # The KWKG supports just 60.000 or 30.000 full load hours (depending of elec power)
@@ -1342,68 +1409,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         else:
             model.addConstr(sub["kwkg"] == 0)
 
-        #%% KfW-Subsidy for Battery
-        
-        dev = "bat"
-        if options["KfW"]:
-            model.addConstr(subsidy[dev] <= eco["crf"] * sub_par["bat"]["sub_bat_max"] * 
-                                            devs["pv"]["p_nom"] * lin_bat_sub * 
-                                            sub_par["bat"]["share_max"],
-                                            name="Bat_Subsidies_1")
-            
-            model.addConstr(subsidy[dev] <= (c_inv["pv"] + c_inv["bat"] - eco["crf"] * 
-                                             sub_par["bat"]["sub_bat"] * devs["pv"]["p_nom"] * 
-                                             lin_bat_sub) * sub_par["bat"]["share_max"],
-                                             name="Bat_Subsidies_2")
-            
-            # linearization contraints because of pv_pow * x_bat
-            model.addConstr(lin_bat_sub <= A_max * x[dev])
-            model.addConstr(area["pv"] - lin_bat_sub >= 0)
-            model.addConstr(area["pv"] - lin_bat_sub <= (1 - x[dev]) * A_max)
-        
-        else:
-            model.addConstr(subsidy[dev] == 0)
-            
-        # Bestrict sold electricity from PV to 70% of the rated power without
-        # battery storage and 50% with storage system       
-        
-        dev = "pv"
-        # linearization constraints
-        model.addConstr(lin_pv_bat <= A_max * x["bat"])
-        model.addConstr(lin_pv_bat >= devs[dev]["area_min"] * x["bat"])
-        model.addConstr(area[dev] - lin_pv_bat >= 0)
-        model.addConstr(area[dev] - lin_pv_bat <= (1 - x["bat"]) * A_max)
-        
-        if options["EEG"] and options["KfW"]:
-            # With EEG and KfW --> cap PV exports at 70 or 50%
-            for d in days:
-                for t in time_steps:
-                    model.addConstr(p_sell[dev,d,t] <= 0.7 * devs[dev]["p_nom"] * (area[dev] - lin_pv_bat) +
-                                                       0.5 * devs[dev]["p_nom"] * lin_pv_bat,
-                                                       name='restrict sold elec')
-        
-        elif options["EEG"] and not options["KfW"]:
-            # No KfW support --> always cap PV exports at 70%
-            for d in days:
-                for t in time_steps:
-                    model.addConstr(p_sell[dev,d,t] <= 0.7 * devs[dev]["p_nom"] * (area[dev] - lin_pv_bat) + 
-                                                       0.7 * devs[dev]["p_nom"] * lin_pv_bat,
-                                                       name='restrict sold elec')
-        
-        elif not options["EEG"] and options["KfW"]:
-            # No EEG, but with KfW support --> cap PV exports at 50% with BAT, and no limit without BAT
-            for d in days:
-                for t in time_steps:
-                    model.addConstr(p_sell[dev,d,t] <= 1.0 * devs[dev]["p_nom"] * (area[dev] - lin_pv_bat) +
-                                                       0.5 * devs[dev]["p_nom"] * lin_pv_bat[n],
-                                                       name='restrict sold elec')
-        
-        else:
-            # Neither EEG nor KfW --> do not limit PV exports
-            for d in days:
-                for t in time_steps:
-                    model.addConstr(p_sell[dev,d,t] <= 1.0 * devs[dev]["p_nom"] * area[dev],
-                                                       name='restrict sold elec')    
+
             
         #%% MAP-Subsidy for STC  
                    
@@ -1509,7 +1515,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                    
             #Additional Building-Efficiency-Subsidy
             model.addConstr(sub_bafa_stc["build_eff"] <= M * b_sub_restruc["kfw_eff_55"], 
-                                                            name = "stc_bafa_b_e_1")
+                                                         name = "stc_bafa_b_e_1")
            
             model.addConstr(sub_bafa_stc["build_eff"] <= sub_par[dev]["build_eff"] * 
                                                         (sub_bafa_stc["inno"] + 
@@ -1843,7 +1849,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         for d in days:
             for t in time_steps:
                  model.addConstr(heat_mod[d,t] >= Q_Ht[d,t] - Q_s[d,t] - clustered["int_gains"][d,t])
-                 model.addConstr(heat_mod[d,t] <= Q_Ht[d,t]) 
+#                 model.addConstr(heat_mod[d,t] <= Q_Ht[d,t]) 
               
         #Transmission losses for windows, wall, rooftop and ground incl. surcharge for thermal bridges 
         #as a function of the selected u-values and the temperature difference:
@@ -1947,7 +1953,6 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                      ref_building["H_v"] * ref_building["f_ql"] + ref_building["Q_tw"] -      
                                      ref_building["eta"] * (ref_building["Q_i"] + ref_building["Q_s"]) * 
                                      sum(heating_concept[n] * ep_table["ep"][n] for n in heating_concept.keys())))
-
                           
         #There are two restrictions for subsidies for kfw-efficiency-buildings
         #Specific transmission losses and primary energy demand have to be lower 
@@ -1980,9 +1985,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for dev in kfw_standards:
                 model.addConstr(subsidy[dev] <= eco["crf"] * 
                                                 (1 - shell_eco["Window"]["rval"]) * 
-                                                b_sub_restruc[dev] * sub_par["building"]["grant"][dev])
+                                                b_sub_restruc[dev] * 
+                                                sub_par["building"]["grant"][dev])
                                                 
-                model.addConstr(subsidy[dev] <= sub_par["building"]["share_max"][dev] * sum(c_inv[n] for n in building_components))     
+                model.addConstr(subsidy[dev] <= sub_par["building"]["share_max"][dev] * 
+                                                sum(c_inv[n] for n in building_components))     
 
         else:                              
             for dev in kfw_standards:
@@ -1997,20 +2004,29 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         if options["scenario"] == "free":
             pass
         
-        elif options ["scenario"] == "example":
-#            model.addConstr(x["hp_geo"] == 1)
-            model.addConstr(x["chp"] == 1)
-#            model.addConstr(heating_concept[1] == 1)
+        elif options ["scenario"] == "s1":
+#            model.addConstr(x["pellet"] == 1)
+#            model.addConstr(x["stc"] == 1)
+            model.addConstr(b_sub_restruc["kfw_eff_85"] == 1)
+            
+        elif options ["scenario"] == "kfw85":
+            model.addConstr(b_sub_restruc["kfw_eff_85"] == 1)
+            
+        elif options ["scenario"] == "kfw100":
+            model.addConstr(b_sub_restruc["kfw_eff_100"] == 1)    
+            
         elif options ["scenario"] == "hp":
             model.addConstr(x["hp_geo"] == 1)
-#            model.addConstr(heating_concept[1] == 1)
+            
+        elif options ["scenario"] == "envelope":
             for i in building_components:
                 model.addConstr(x_restruc[i,"standard"] == 1)
-#            model.addConstr(x_restruc["OuterWall","standard"] == 1)
-#            model.addConstr(x_restruc["Rooftop","standard"] == 1)
-#            model.addConstr(x_restruc["GroundFloor","standard"] == 1)
-#            model.addConstr(b_sub_restruc["kfw_eff_100"] == 1)      
-#            model.addConstr(b_sub_restruc["window"] == 1)
+                
+        elif options ["scenario"] == "bat":
+            for i in building_components:
+                model.addConstr(x["bat"] == 0)
+#                model.addConstr(b_pv_power["kfw"] == 1)
+
             
         #%% Set start values and branching priority
         if options["load_start_vals"]:
@@ -2056,7 +2072,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         
         # Operation
         res_y = {}
-        for dev in heater:
+        for dev in ("pellet","stc","boiler","hp_geo","hp_air","eh","chp"):
             res_y[dev] = np.array([[y[dev,d,t].X for t in time_steps] for d in days])
 
         # Tariffs
@@ -2190,6 +2206,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
 
         res_sub_chp = {n: sub[n].X for n in sub.keys()}
         
+        res_b_pv_power = {i: b_pv_power[i].X for i in ("kfw", "eeg")}
+        res_lin_pv_power = {i: lin_pv_power[i].X for i in ("kfw", "eeg")}
+        
+
+        
         # Emissions 
 #        res_emission_max = max_emi
         res_emission = emission.X / 1000
@@ -2246,7 +2267,9 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             pickle.dump(res_heating_concept, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_lin_Ht, fout, pickle.HIGHEST_PROTOCOL)         
             pickle.dump(res_sub_chp, fout, pickle.HIGHEST_PROTOCOL)         
-                      
+            pickle.dump(res_b_pv_power, fout, pickle.HIGHEST_PROTOCOL)         
+            pickle.dump(res_lin_pv_power, fout, pickle.HIGHEST_PROTOCOL)         
+            
         # Return results
         return(res_c_total, res_emission)
 

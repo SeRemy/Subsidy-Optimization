@@ -14,6 +14,7 @@ def read_results(name):
         results["inputs_clustered"] = pickle.load(f_in)
         results["inputs_params"] = pickle.load(f_in)
         results["inputs_building"] = pickle.load(f_in)
+        results["inputs_subsidies"] = pickle.load(f_in)
     
     with open ("results/"+ name + '.pkl', "rb") as fin:
         results["5_x"] = pickle.load(fin) 
@@ -60,5 +61,7 @@ def read_results(name):
         results["res_heating_concept"] = pickle.load(fin)
         results["res_lin_HT"] = pickle.load(fin)
         results["res_sub_chp"] = pickle.load(fin)
+        results["res_b_pv_power"] = pickle.load(fin)
+        results["res_lin_pv_power"] = pickle.load(fin)                      
     
     return results

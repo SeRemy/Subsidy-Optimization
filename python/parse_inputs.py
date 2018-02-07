@@ -731,7 +731,7 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["t_NOCT"] = np.mean([sheet[i]["t_NOCT"] for i in keys])
         results["gamma"]  = np.mean([sheet[i]["gamma"] for i in keys])
         results["p_nom"]  = np.mean([sheet[i]["p_nom"] for i in keys])
-                
+        
         i_NOCT = 0.8 # kW / m2
         
         # Interpolate cell temperature.
@@ -800,9 +800,8 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["T_op"]    = np.mean([sheet[i]["T_op"] for i in keys])
         results["k_loss"]  = np.mean([sheet[i]["k_loss"] for i in keys])
         results["eta_ch"]  = np.mean([sheet[i]["eta_ch"] for i in keys])
-        results["eta_dch"] = np.mean([sheet[i]["eta_dch"] for i in keys])
-                
-        results["dT_max"] = 40  # Max. temperature spread in Kelvin
+        results["eta_dch"] = np.mean([sheet[i]["eta_dch"] for i in keys])                
+        results["dT_max"] = np.mean([sheet[i]["dT_max"] for i in keys])
         
         # Regression: c_inv = slope * volume + intercept
         lin_reg = stats.linregress(x=volume, y=c_inv)
@@ -841,8 +840,10 @@ def _read_sheet(sheet, device, timesteps):
     for row in range(1, sheet.nrows):
         # Create new dictionary for current entry. Add common inputs.
         current_results = {}
+        
         # Handle each device separately
         if device == "bat":
+            
             current_results["c_inv"]     = sheet.cell_value(row, 1)
             current_results["c_om"]      = sheet.cell_value(row, 2)
             current_results["T_op"]      = sheet.cell_value(row, 3)
@@ -853,6 +854,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["k_loss"]    = 0
 
         elif device == "boiler":
+            
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
             current_results["c_inv"]   = sheet.cell_value(row, 3)
@@ -861,6 +863,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["eta"]     = sheet.cell_value(row, 6)
             
         elif device == "pellet":
+            
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
             current_results["c_inv"]   = sheet.cell_value(row, 3)
@@ -869,6 +872,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["eta"]     = sheet.cell_value(row, 6)
 
         elif device == "chp":
+            
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
             current_results["c_inv"]   = sheet.cell_value(row, 3)
@@ -878,6 +882,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["omega"]   = sheet.cell_value(row, 7)
             
         elif device == "eh":
+            
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
             current_results["c_inv"]   = sheet.cell_value(row, 3)
@@ -886,6 +891,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["eta"]     = sheet.cell_value(row, 6)
             
         elif device == "hp_air":
+            
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
             current_results["c_inv"]   = sheet.cell_value(row, 3)
@@ -902,6 +908,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["cop_a12w55"] = sheet.cell_value(row, 14)
             
         elif device == "hp_geo":
+            
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
             current_results["c_inv"]   = sheet.cell_value(row, 3)
@@ -918,6 +925,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["cop_a12w55"] = sheet.cell_value(row, 14)
             
         elif device == "pv":
+            
             current_results["c_inv"] = sheet.cell_value(row, 2)
             current_results["c_om"]  = sheet.cell_value(row, 3)
             current_results["T_op"]  = sheet.cell_value(row, 4)
@@ -929,6 +937,7 @@ def _read_sheet(sheet, device, timesteps):
             current_results["p_nom"]   = sheet.cell_value(row, 8)
 
         elif device == "stc":
+            
             current_results["c_inv"] = sheet.cell_value(row, 1)
             current_results["c_om"]  = sheet.cell_value(row, 2)
             current_results["T_op"]  = sheet.cell_value(row, 3)
@@ -941,11 +950,13 @@ def _read_sheet(sheet, device, timesteps):
             current_results["dT_max"]  = sheet.cell_value(row, 8)         
 
         elif device == "tes":
-            current_results["c_inv"]    = sheet.cell_value(row, 1)
-            current_results["c_om"]     = sheet.cell_value(row, 2)
-            current_results["T_op"]     = sheet.cell_value(row, 3)
-            current_results["eta_ch"]   = sheet.cell_value(row, 6)
-            current_results["eta_dch"]  = sheet.cell_value(row, 7)
+            
+            current_results["c_inv"]   = sheet.cell_value(row, 1)
+            current_results["c_om"]    = sheet.cell_value(row, 2)
+            current_results["T_op"]    = sheet.cell_value(row, 3)
+            current_results["eta_ch"]  = sheet.cell_value(row, 6)
+            current_results["eta_dch"] = sheet.cell_value(row, 7)
+            current_results["dT_max"]  = sheet.cell_value(row, 8)
             
             standby_losses = sheet.cell_value(row, 4) # in kWh / 24h
             volume = sheet.cell_value(row, 5)         # in m3
