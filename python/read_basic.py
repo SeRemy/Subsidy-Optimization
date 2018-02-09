@@ -15,6 +15,7 @@ def read_results(name):
         results["inputs_params"] = pickle.load(f_in)
         results["inputs_building"] = pickle.load(f_in)
         results["inputs_subsidies"] = pickle.load(f_in)
+        results["inputs_ref_building"] = pickle.load(f_in)
     
     with open ("results/"+ name + '.pkl', "rb") as fin:
         results["5_x"] = pickle.load(fin) 

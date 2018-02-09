@@ -28,6 +28,7 @@ household_size     = "3"        # 1, 2, 3, 4, 5
 electricity_demand = "medium"   # low, medium, high  
 dhw_demand         = "medium"   # low, medium, high  
 
+sub = True
 
 #%% Read inputs
 
@@ -124,7 +125,6 @@ with open(filename, "wb") as f_in:
 
 emi_max = 99999
 cost_max = 99999
-sub = True
 
 filename_save = "results/free_"
 filename_start = "start_values/free_"
@@ -160,15 +160,15 @@ options["filename_start_vals"] = filename_start + "0.csv"
                                    building, ref_building, shell_eco, subsidies,
                                    ep_table, emi_max, cost_max)
 
-# Second optimization to minimize the emission at minimal costs
-options["opt_costs"] = False
-options["load_start_vals"] = True
-options["filename_results"] = filename_save + "0.pkl"
-options["filename_start_vals"] = filename_start + "0.csv"
-
-(min_cost, max_emi) = opti.compute(economics, devs, clustered, params, options, 
-                                   building, ref_building, shell_eco, subsidies,
-                                   ep_table, max_emi, min_cost + 0.01)
+## Second optimization to minimize the emission at minimal costs
+#options["opt_costs"] = False
+#options["load_start_vals"] = True
+#options["filename_results"] = filename_save + "0.pkl"
+#options["filename_start_vals"] = filename_start + "0.csv"
+#
+#(min_cost, max_emi) = opti.compute(economics, devs, clustered, params, options, 
+#                                   building, ref_building, shell_eco, subsidies,
+#                                   ep_table, max_emi, min_cost + 10)
 
 #%% Run emission-minimization:
 

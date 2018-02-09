@@ -7,10 +7,12 @@ Created on Mon Feb  5 14:10:26 2018
 import pickle
 
 
-folder = "OhneSub/"
+#folder = "OhneSub/"
 folder = "MitSub/"
+#folder = "benchmark/"
 
-name = "free_0"
+name = "free_9"
+#name = "SFH_1949 1957"
 
 results = {}
 
@@ -21,7 +23,7 @@ with open("results/inputs_SFH_1949 1957.pkl", "rb") as f_in:
     results["inputs_params"] = pickle.load(f_in)
     results["inputs_building"] = pickle.load(f_in)
     results["inputs_subsidies"] = pickle.load(f_in)
-    results["inputs_ref_building"] = pickle.load(f_in)
+#    results["inputs_ref_building"] = pickle.load(f_in)
 
 with open ("results/"+ folder + name + '.pkl', "rb") as fin:
     results["5_x"] = pickle.load(fin) 

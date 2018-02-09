@@ -887,7 +887,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 timetag = "_" + str(d) + "_" + str(t)
                 
-                model.addConstr(power[dev,d,t] == area[dev] * 
+                model.addConstr(power[dev,d,t] <= area[dev] * 
                                                   devs[dev]["eta_el"][d][t] *
                                                   eta_inverter *
                                                   clustered["solar_irrad"][d][t],
@@ -899,7 +899,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 timetag = "_" + str(d) + "_" + str(t)
 
-                model.addConstr(heat[dev,d,t] == area[dev] * 
+                model.addConstr(heat[dev,d,t] <= area[dev] * 
                                                  devs[dev]["eta_th"][d][t] *
                                                  clustered["solar_irrad"][d][t],
                                                  name="Solar_thermal_"
@@ -1147,7 +1147,8 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             delta_temp = clustered["inside_temp"] - clustered["standard_temp"] 
             
             model.addConstr(dsh == (H_t + 0.5 * 0.34 * 
-                                    building["dimensions"]["Volume"]) *
+                                    building["dimensions"]["Volume"] * 
+                                    building["dimensions"]["Area"]) *
                                     delta_temp / 1000,
                                     name = "dsh1")
         
@@ -1844,13 +1845,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                           
         
         #%%Calculation of space heating in accordance with DIN V 4108
-        # For every timestep die heating demand is calculated in considering of 
-        # the transmissionen and ventilation losses as well as internal and solar gains
-        for d in days:
-            for t in time_steps:
-                 model.addConstr(heat_mod[d,t] >= Q_Ht[d,t] - Q_s[d,t] - clustered["int_gains"][d,t])
-#                 model.addConstr(heat_mod[d,t] <= Q_Ht[d,t]) 
-              
+
         #Transmission losses for windows, wall, rooftop and ground incl. surcharge for thermal bridges 
         #as a function of the selected u-values and the temperature difference:
         
@@ -1871,6 +1866,21 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 model.addConstr(Q_Ht[d,t] == clustered["delta_T"][d,t] / 1000 * H_t)                                     
                                            
+        
+        #Ventilation Losses
+        vol = 0.76 * building["dimensions"]["Area"] * building["dimensions"]["Volume"]
+        ro_cp = 0.34 #Wh/m³K
+        n = 0.7 #1/h 
+        
+        H_v = ro_cp * n * vol
+      
+        # Total heating losses
+        G_t = 3380 #Kd - Gradtagzahl
+        f_na = 0.95 #Parameter for switching off the heater in the night
+        f_ql = 0.024 * G_t * f_na
+        
+        Q_l =  H_v * f_ql / 8760 #kWh
+        
         #Solar Gains for all windowareas as a function of the solar radiation 
         #of the respective direction:
                                             
@@ -1892,6 +1902,15 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                              clustered["solar_n"][d,t] + 
                                              building["dimensions"]["Window_south"] * 
                                              clustered["solar_s"][d,t]))
+                
+                
+        # For every timestep die heating demand is calculated in considering of 
+        # the transmissionen and ventilation losses as well as internal and solar gains
+        for d in days:
+            for t in time_steps:
+                 model.addConstr(heat_mod[d,t] >= Q_Ht[d,t] + Q_l - Q_s[d,t] - clustered["int_gains"][d,t])
+                 model.addConstr(heat_mod[d,t] <= Q_Ht[d,t] + Q_l) 
+              
                                                                                                                           
         #%%KfW-Subsidies for individual measures
                                                                                                                                   
@@ -2004,6 +2023,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         if options["scenario"] == "free":
             pass
         
+        elif options ["scenario"] == "benchmark":
+            model.addConstr(x["boiler"] == 1)            
+            for i in building_components:
+                model.addConstr(x_restruc[i,"standard"] == 1)
+        
         elif options ["scenario"] == "s1":
 #            model.addConstr(x["pellet"] == 1)
 #            model.addConstr(x["stc"] == 1)
@@ -2024,7 +2048,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                 
         elif options ["scenario"] == "bat":
             for i in building_components:
-                model.addConstr(x["bat"] == 0)
+                model.addConstr(x["bat"] == 1)
 #                model.addConstr(b_pv_power["kfw"] == 1)
 
             

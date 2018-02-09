@@ -71,19 +71,13 @@ def read_results(name):
 emi1.sort(reverse = True)
 costs1.sort()
 
-(costs2,emi2) = read_results(name = "free_")
-#emi2.sort(reverse = True)
-#costs2.sort()
+(costs2,emi2) = read_results(name = "MitSub/free_")
+emi2.sort(reverse = True)
+costs2.sort()
 #    
 import matplotlib.pyplot as plt
 plt.rcParams['savefig.facecolor'] = "0.8"
 
-
-emi_list = (5.77, 3.71, 3.66, 2.61, 1.56, 0.51, -0.54, -1.6, -1.7, -2.65)
-cost_list = (3796,3890,3962,3926,3938,3997,4188,4534,4822,5755)
-
-emi_list1 = (-0.93, -1.36, -1.69, -1.73, -1.91, -2.18, -2.43, -2.48, -2.66)
-cost_list1 = (3232,3343,3414,3470,3505,3915,3939,3960,4193)
 
 def example_plot(ax, fontsize=12):
 #    ax.plot(emi_list,cost_list)
@@ -95,12 +89,13 @@ def example_plot(ax, fontsize=12):
 #    cost_list.sort()
 
     
-    ax.legend(("Ohne Förderung", "Mit Förderung"), fontsize=fontsize )
+#    ax.legend(("Ohne Förderung", "Mit Förderung"), fontsize=fontsize )
     
     ax.locator_params(nbins=7)
-    ax.set_xlabel('CO2-Emissionen in t/a', fontsize=fontsize)
-    ax.set_ylabel('Jährliche Kosten in €/a', fontsize=fontsize)
-    ax.set_title('CO2-Vermeidungskosten', fontsize=fontsize)
+    ax.axvline(x=0, color = "black")
+#    ax.set_xlabel('CO2-Emissionen in t/a', fontsize=fontsize)
+#    ax.set_ylabel('Jährliche Kosten in €/a', fontsize=fontsize)
+#    ax.set_title('CO2-Vermeidungskosten', fontsize=fontsize)
 
 plt.close('all')
 fig, ax = plt.subplots()

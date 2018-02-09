@@ -121,7 +121,7 @@ def building_optimization(building_type, building_age, location,
     
     max_emi = 99999
     max_cost = 99999
-    sub = True
+    sub = False
     
     options={"filename_results" : "results/" + building_type + "_" + building_age + ".pkl",
                           
@@ -139,8 +139,8 @@ def building_optimization(building_type, building_age, location,
              "dhw_electric" : False,
              "New_Building": False,
              "MFH": False,
-             "scenario": "s1",
-             "Design_heat_load" : False,
+             "scenario": "benchmark",
+             "Design_heat_load" : True,
              "store_start_vals" : False,
              "load_start_vals" : False,
              "filename_start_vals" :"start_values/" + building_type + "_" + building_age + "_start.csv"}
