@@ -10,8 +10,9 @@ import pickle
 #folder = "OhneSub/"
 folder = "MitSub/"
 #folder = "benchmark/"
+folder = "EEG/"
 
-name = "free_9"
+name = "free_0"
 #name = "SFH_1949 1957"
 
 results = {}

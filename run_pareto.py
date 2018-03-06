@@ -143,7 +143,7 @@ options={"EEG": sub,
          "dhw_electric" : False,
          "New_Building": False,
          "MFH": False,
-         "scenario": "free",
+         "scenario": "s1",
          "Design_heat_load" : False,
          "store_start_vals" : True,
          "load_start_vals" : False
@@ -160,79 +160,79 @@ options["filename_start_vals"] = filename_start + "0.csv"
                                    building, ref_building, shell_eco, subsidies,
                                    ep_table, emi_max, cost_max)
 
-## Second optimization to minimize the emission at minimal costs
-#options["opt_costs"] = False
-#options["load_start_vals"] = True
-#options["filename_results"] = filename_save + "0.pkl"
-#options["filename_start_vals"] = filename_start + "0.csv"
-#
-#(min_cost, max_emi) = opti.compute(economics, devs, clustered, params, options, 
-#                                   building, ref_building, shell_eco, subsidies,
-#                                   ep_table, max_emi, min_cost + 10)
-
-#%% Run emission-minimization:
-
+# Second optimization to minimize the emission at minimal costs
 options["opt_costs"] = False
-options["load_start_vals"] = False
-options["filename_results"] = filename_save + "9.pkl"
-options["filename_start_vals"] = filename_start + "9.csv"
-
-(max_cost, min_emi) = opti.compute(economics, devs, clustered, params, options, 
-                                   building, ref_building, shell_eco, subsidies,
-                                   ep_table, emi_max, cost_max)
-
-# Second optimization to minimize the costs at minimal emissions
-options["opt_costs"] = True
 options["load_start_vals"] = True
-options["filename_results"] = filename_save + "9.pkl"
-options["filename_start_vals"] = filename_start + "9.csv"
+options["filename_results"] = filename_save + "0.pkl"
+options["filename_start_vals"] = filename_start + "0.csv"
 
-(max_cost, min_emi) = opti.compute(economics, devs, clustered, params, options, 
+(min_cost, max_emi) = opti.compute(economics, devs, clustered, params, options, 
                                    building, ref_building, shell_eco, subsidies,
-                                   ep_table, min_emi + 0.01, max_cost)
+                                   ep_table, max_emi, min_cost + 10)
 
-#%% Run multiple simulations
-nr_sim = 8
-options["opt_costs"] = True
-options["load_start_vals"] = False
-prev_emi = max_emi
-emi = {}
-cost = {}
-
-emi[0] = max_emi
-cost[0] = min_cost
-
-emi[9] = min_emi
-cost[9] = max_cost
-
-for i in range(1, nr_sim+1):
-    
-    limit_emi = min(max_emi - (max_emi - min_emi) * i / (nr_sim + 1), emi_max)#prev_emi * 0.999)
-
-    options["filename_results"] = "results/free_" + str(i) + ".pkl"
-    
-    (cost[i], emi[i]) = opti.compute(economics, devs, clustered, params, options, 
-                                   building, ref_building, shell_eco, subsidies,
-                                   ep_table, limit_emi, cost_max)
-    
-    prev_emi = emi[i]
-
-emi_list = list(emi.values())
-cost_list = list(cost.values())
-
-emi_list.sort(reverse = True)
-cost_list.sort()
-
-plt.rcParams['savefig.facecolor'] = "0.8"
-
-def example_plot(ax, fontsize=12):
-    ax.plot(emi_list,cost_list)
-
-    ax.locator_params(nbins=6)
-    ax.set_xlabel('CO2-Emissionen', fontsize=fontsize)
-    ax.set_ylabel('Jaehrliche Kosten', fontsize=fontsize)
-    ax.set_title('CO2-Vermeidungskosten', fontsize=fontsize)
-
-plt.close('all')
-fig, ax = plt.subplots()
-example_plot(ax, fontsize=18)
+##%% Run emission-minimization:
+#
+#options["opt_costs"] = False
+#options["load_start_vals"] = False
+#options["filename_results"] = filename_save + "9.pkl"
+#options["filename_start_vals"] = filename_start + "9.csv"
+#
+#(max_cost, min_emi) = opti.compute(economics, devs, clustered, params, options, 
+#                                   building, ref_building, shell_eco, subsidies,
+#                                   ep_table, emi_max, cost_max)
+#
+## Second optimization to minimize the costs at minimal emissions
+#options["opt_costs"] = True
+#options["load_start_vals"] = True
+#options["filename_results"] = filename_save + "9.pkl"
+#options["filename_start_vals"] = filename_start + "9.csv"
+#
+#(max_cost, min_emi) = opti.compute(economics, devs, clustered, params, options, 
+#                                   building, ref_building, shell_eco, subsidies,
+#                                   ep_table, min_emi + 0.01, max_cost)
+#
+##%% Run multiple simulations
+#nr_sim = 8
+#options["opt_costs"] = True
+#options["load_start_vals"] = False
+#prev_emi = max_emi
+#emi = {}
+#cost = {}
+#
+#emi[0] = max_emi
+#cost[0] = min_cost
+#
+#emi[9] = min_emi
+#cost[9] = max_cost
+#
+#for i in range(1, nr_sim+1):
+#    
+#    limit_emi = min(max_emi - (max_emi - min_emi) * i / (nr_sim + 1), emi_max)#prev_emi * 0.999)
+#
+#    options["filename_results"] = "results/free_" + str(i) + ".pkl"
+#    
+#    (cost[i], emi[i]) = opti.compute(economics, devs, clustered, params, options, 
+#                                   building, ref_building, shell_eco, subsidies,
+#                                   ep_table, limit_emi, cost_max)
+#    
+#    prev_emi = emi[i]
+#
+#emi_list = list(emi.values())
+#cost_list = list(cost.values())
+#
+#emi_list.sort(reverse = True)
+#cost_list.sort()
+#
+#plt.rcParams['savefig.facecolor'] = "0.8"
+#
+#def example_plot(ax, fontsize=12):
+#    ax.plot(emi_list,cost_list)
+#
+#    ax.locator_params(nbins=6)
+#    ax.set_xlabel('CO2-Emissionen', fontsize=fontsize)
+#    ax.set_ylabel('Jaehrliche Kosten', fontsize=fontsize)
+#    ax.set_title('CO2-Vermeidungskosten', fontsize=fontsize)
+#
+#plt.close('all')
+#fig, ax = plt.subplots()
+#example_plot(ax, fontsize=18)

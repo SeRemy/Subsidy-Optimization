@@ -189,7 +189,6 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     par["time_limit"] = sheet_par.cell_value(2,1)
     par["rho_w"]      = sheet_par.cell_value(3,1)
     par["c_w"]        = sheet_par.cell_value(4,1)
-    par["dT_max"]     = sheet_par.cell_value(5,1)
 
     # The ep-table gives Information about the expenditure figures of different
     # combinations of heating technologies    
@@ -238,7 +237,7 @@ def compute_parameters(par, number_clusters, len_day):
     
     return par
     
-def read_subsidies(filename="raw_inputs/subsidies.xlsx"):
+def read_subsidies(economics, filename="raw_inputs/subsidies.xlsx"):
     """
     Read in subsdiy parameters.
     
@@ -261,6 +260,7 @@ def read_subsidies(filename="raw_inputs/subsidies.xlsx"):
     sheet_building = book.sheet_by_name("building")
     sheet_eeg      = book.sheet_by_name("eeg")
     sheet_kwkg     = book.sheet_by_name("kwkg")
+    sheet_chp      = book.sheet_by_name("chp")
         
     sub_par = {}
     
@@ -269,31 +269,70 @@ def read_subsidies(filename="raw_inputs/subsidies.xlsx"):
     sub_par["eeg"]["10"]    = sheet_eeg.cell_value(1,1)
     sub_par["eeg"]["40"]    = sheet_eeg.cell_value(2,1)
     sub_par["eeg"]["750"]   = sheet_eeg.cell_value(3,1)
-    sub_par["eeg"]["10000"] = sheet_eeg.cell_value(4,1)    
+    sub_par["eeg"]["10000"] = sheet_eeg.cell_value(4,1)
+    
+    # Es wird davon ausgegangen, dass die Einnahmen durch die Einspeisevergütung
+    # in jedem Jahr gleich hoch sind und maximal 20 Jahre gezahlt werden. Über
+    # den Faktor sub_par["eeg_temp"] wird der Zinseffekt für die zu unterschiedlichen
+    # Zeitpunkten anfallenden Zahlungen einbezogen. Sofern der Betrachtungszeitraum 
+    # weniger als 20 Jahre beträgt, wird diese hier ebenfalls berücksichtigt.
+    
+    if economics["t_calc"] >= 20:        
+        sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,20))
+    else:         
+        sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,economics["t_calc"]+1))
     
     # KWKG conditions for chps    
+    
     sub_par["kwkg"] = {}
-    sub_par["kwkg"]["lump"]       = sheet_kwkg.cell_value(0,1)
+#    sub_par["kwkg"]["lump"]       = sheet_kwkg.cell_value(0,1)
     sub_par["kwkg"]["t_50"]       = sheet_kwkg.cell_value(1,1)
-    sub_par["kwkg"]["t_100"]      = sheet_kwkg.cell_value(2,1)    
+#    sub_par["kwkg"]["t_100"]      = sheet_kwkg.cell_value(2,1)    
     
     sub_par["kwkg"]["self_50"]    = sheet_kwkg.cell_value(3,1)
-    sub_par["kwkg"]["self_100"]   = sheet_kwkg.cell_value(4,1)
-    sub_par["kwkg"]["self_250"]   = sheet_kwkg.cell_value(5,1)
-    sub_par["kwkg"]["self_2000"]  = sheet_kwkg.cell_value(6,1) 
-    sub_par["kwkg"]["self_10000"] = sheet_kwkg.cell_value(7,1)
+#    sub_par["kwkg"]["self_100"]   = sheet_kwkg.cell_value(4,1)
+#    sub_par["kwkg"]["self_250"]   = sheet_kwkg.cell_value(5,1)
+#    sub_par["kwkg"]["self_2000"]  = sheet_kwkg.cell_value(6,1) 
+#    sub_par["kwkg"]["self_10000"] = sheet_kwkg.cell_value(7,1)
 
     sub_par["kwkg"]["sell_50"]    = sheet_kwkg.cell_value(8,1)
-    sub_par["kwkg"]["sell_100"]   = sheet_kwkg.cell_value(9,1)
-    sub_par["kwkg"]["sell_250"]   = sheet_kwkg.cell_value(10,1)
-    sub_par["kwkg"]["sell_2000"]  = sheet_kwkg.cell_value(11,1)
-    sub_par["kwkg"]["sell_10000"] = sheet_kwkg.cell_value(12,1)
+#    sub_par["kwkg"]["sell_100"]   = sheet_kwkg.cell_value(9,1)
+#    sub_par["kwkg"]["sell_250"]   = sheet_kwkg.cell_value(10,1)
+#    sub_par["kwkg"]["sell_2000"]  = sheet_kwkg.cell_value(11,1)
+#    sub_par["kwkg"]["sell_10000"] = sheet_kwkg.cell_value(12,1)
     
-    sub_par["kwkg"]["ave_50"]    = sheet_kwkg.cell_value(13,1)
-    sub_par["kwkg"]["ave_100"]   = sheet_kwkg.cell_value(14,1)
-    sub_par["kwkg"]["ave_250"]   = sheet_kwkg.cell_value(15,1)
-    sub_par["kwkg"]["ave_2000"]  = sheet_kwkg.cell_value(16,1)
-    sub_par["kwkg"]["ave_10000"] = sheet_kwkg.cell_value(17,1)
+#    sub_par["kwkg"]["ave_50"]    = sheet_kwkg.cell_value(13,1)
+#    sub_par["kwkg"]["ave_100"]   = sheet_kwkg.cell_value(14,1)
+#    sub_par["kwkg"]["ave_250"]   = sheet_kwkg.cell_value(15,1)
+#    sub_par["kwkg"]["ave_2000"]  = sheet_kwkg.cell_value(16,1)
+#    sub_par["kwkg"]["ave_10000"] = sheet_kwkg.cell_value(17,1)
+    
+    sub_par["kwkg"]["vls"] = {}
+    sub_par["kwkg"]["vls"]["2500"] = 2500
+    sub_par["kwkg"]["vls"]["3000"] = 3000
+    sub_par["kwkg"]["vls"]["3500"] = 3500
+    sub_par["kwkg"]["vls"]["4000"] = 4000
+    sub_par["kwkg"]["vls"]["4500"] = 4500
+    sub_par["kwkg"]["vls"]["5000"] = 5000
+    sub_par["kwkg"]["vls"]["5500"] = 5500
+    sub_par["kwkg"]["vls"]["6000"] = 6000
+    sub_par["kwkg"]["vls"]["6500"] = 6500
+    
+    sub_par["kwkg"]["i"] = {}
+    for n in (2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500):
+        t = round(sub_par["kwkg"]["t_50"] / n)          
+        sub_par["kwkg"]["i"][str(n)] = sum(1/economics["q"]**n for n in range(1,t+1))
+    
+    # Bafa subsidy for Micro CHP
+    
+    sub_par["bafa_chp"] = {}
+    sub_par["bafa_chp"]["sub_step_1"]  = sheet_chp.cell_value(0,1)
+    sub_par["bafa_chp"]["sub_step_2"]  = sheet_chp.cell_value(1,1)
+    sub_par["bafa_chp"]["sub_step_3"]  = sheet_chp.cell_value(2,1)
+    sub_par["bafa_chp"]["sub_step_4"]  = sheet_chp.cell_value(3,1)
+    sub_par["bafa_chp"]["sub_basic_max"]   = sheet_chp.cell_value(4,1)
+    sub_par["bafa_chp"]["share_therm_eff"] = sheet_chp.cell_value(5,1)
+    sub_par["bafa_chp"]["share_elec_eff"]  = sheet_chp.cell_value(6,1)
     
     #KfW program 275 for battery storages
     sub_par["bat"] = {}
@@ -586,6 +625,7 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["therm_eff_bonus"]  =  1
         results["power_eff_bonus"]  =  0
         results["sigma"] = 1/np.mean(results["eta"])
+        results["omega"] = omega
                 
         # Regression: c_inv = slope * heat_output + intercept
         lin_reg = stats.linregress(x=heat_output, y=c_inv)
@@ -1135,6 +1175,21 @@ def retrofit_scenarios():
     tabula_scenarios["TH"] = tabula_scenarios.pop("_TH")
     tabula_scenarios["AB"] = tabula_scenarios.pop("_AB")
 
+    for a in tabula_scenarios.keys():
+        for b in tabula_scenarios[a].keys():
+            for c in tabula_scenarios[a][b].keys():
+                try:
+                    if tabula_scenarios[a][b][c]["Window"]["U-Value"] >= 5.0:
+                         tabula_scenarios[a][b][c]["Window"]["G-Value"] = 0.87
+                    elif tabula_scenarios[a][b][c]["Window"]["U-Value"] < 5.0 and tabula_scenarios[a][b][c]["Window"]["U-Value"] > 1.9:
+                         tabula_scenarios[a][b][c]["Window"]["G-Value"] = 0.75
+                    elif tabula_scenarios[a][b][c]["Window"]["U-Value"] <= 1.9 and tabula_scenarios[a][b][c]["Window"]["U-Value"] > 1.2:
+                         tabula_scenarios[a][b][c]["Window"]["G-Value"] = 0.6
+                    elif tabula_scenarios[a][b][c]["Window"]["U-Value"] <= 1.2:
+                         tabula_scenarios[a][b][c]["Window"]["G-Value"] = 0.5
+                except:
+                    None
+                    
     return tabula_scenarios
         
 def parse_building_parameters ():

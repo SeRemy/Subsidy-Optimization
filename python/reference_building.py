@@ -136,5 +136,11 @@ def reference_building(building):
     reference_building["H_v"] = H_v
     reference_building["f_ql"] = f_ql
     reference_building["eta"] = eta
-           
+    
+    reference_building["U-values"] = {}
+    reference_building["U-values"]["GroundFloor"] = u_ref["GroundFloor"]
+    reference_building["U-values"]["Window"]      = u_ref["Window"]      
+    reference_building["U-values"]["Rooftop"]     = u_ref["Rooftop"]
+    reference_building["U-values"]["OuterWall"]   = u_ref["OuterWall"]
+    
     return reference_building
