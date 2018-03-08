@@ -4,11 +4,9 @@
 """
 @author: srm
 """
-
 from __future__ import division
 import numpy as np
 import pickle
-
 import python.clustering_medoid as clustering
 import python.parse_inputs as pik
 import python.building_optimization as opti
@@ -145,20 +143,18 @@ def building_optimization(building_type, building_age, location,
     
     max_emi = 99999
     max_cost = 99999
-    
-    sub = True
-    
-    options={"scenario": "free",
-             "EEG": sub,
-             "kfw_battery": sub,
-             "KWKG": sub,           
-             "Bafa_chp": sub,
-             "Bafa_hp": sub,
-             "Bafa_stc": sub,
-             "Bafa_pellet": sub,
-             "kfw_eff_buildings" : sub,
-             "kfw_single_mea" : sub,
-             "opt_costs" : True,
+        
+    options={"opt_costs" : True,
+            "scenario": "free",
+             "EEG": True,
+             "kfw_battery": True,
+             "KWKG": True,           
+             "Bafa_chp": True,
+             "Bafa_hp": True,
+             "Bafa_stc": True,
+             "Bafa_pellet": True,
+             "kfw_eff_buildings" : True,
+             "kfw_single_mea" : True,             
              "HP tariff": True,
              "dhw_electric" : True,
              "New_Building": False,
@@ -242,11 +238,11 @@ if __name__ == "__main__":
     
     useable_roofarea  = 0.25    #Default value: 0.25
     
-    apartment_quantity = 35    # SFH and TH: 1 - Always
+    apartment_quantity = 25    # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
                                 # AB: 15, 20, 25, 30, 35 
                                 
-    apartment_size = 65         # SFH and TH: average 110 - 120 m² in Germany
+    apartment_size = 70         # SFH and TH: average 110 - 120 m² in Germany
                                 # MFH and AB: avergae 60 - 70 m² in Germany 
 
     household_size = 5          # SFH and TH: 1, 2, 3, 4, 5

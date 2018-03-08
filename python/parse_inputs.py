@@ -133,9 +133,16 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
         eco["pel"][sheet_pel.cell_value(i,0)]["emi"] = float(sheet_pel.cell_value(i,3))
     
     # Determine residual values
-    for dev in devices.keys():
-        t_life = devices[dev]["T_op"]
-        rval = (t_life - eco["t_calc"]) / t_life / (eco["q"] ** eco["t_calc"])
+    for dev in devices.keys():              
+        
+        T_n = devices[dev]["T_op"]
+        T   = eco["t_calc"]        
+        n   = int(T/T_n)
+        r   = eco["prChange"]["infl"]
+        q   = eco["q"] 
+        
+        rval = (sum((r/q)**(n*T_n) for n in range(0,n+1)) - ((r**(n*T_n) * ((n+1)*T_n - T)) / (T_n * q**T)))
+        
         devices[dev]["rval"] = rval
        
     # Economic aspects of the building-shell: 
@@ -149,12 +156,22 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
         if component == "Rooftop": 
             row = 3
         if component == "GroundFloor": 
-            row = 4       
+            row = 4
+            
         shell_eco[component]["c_var"]   = sheet_comp.cell_value(row,1)
+        
         shell_eco[component]["c_const"] = sheet_comp.cell_value(row,2)
-        t_life = sheet_comp.cell_value(row,3)
-        rval = (t_life - eco["t_calc"]) / t_life / (eco["q"] ** eco["t_calc"])
+        
+        T_n = sheet_comp.cell_value(row,3)
+        T   = eco["t_calc"]        
+        n   = int(T/T_n)
+        r   = eco["prChange"]["infl"]
+        q   = eco["q"] 
+
+        rval = (sum((r/q)**(n*T_n) for n in range(0,n+1)) - ((r**(n*T_n) * ((n+1)*T_n - T)) / (T_n * q**T)))
+        
         shell_eco[component]["rval"] = rval
+        
         shell_eco[component]["c_o&m"] = sheet_comp.cell_value(row,4)
            
     # Installation costs 
@@ -280,7 +297,7 @@ def read_subsidies(economics, filename="raw_inputs/subsidies.xlsx"):
     if economics["t_calc"] >= 20:        
         sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,20))
     else:         
-        sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,economics["t_calc"]+1))
+        sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,int(economics["t_calc"]+1)))
     
     # KWKG conditions for chps    
     

@@ -2,10 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Created on Thu Oct 01 10:35:56 2015
 @author: srm
 """
-
 from __future__ import division
 import gurobipy as gp
 import numpy as np
@@ -656,7 +654,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         
         #Devices
         for dev in devs.keys():
-            model.addConstr(c_inv[dev] == eco["crf"] * (1-devs[dev]["rval"]) *
+            model.addConstr(c_inv[dev] == eco["crf"] * devs[dev]["rval"] *
                                          (x[dev] * (devs[dev]["c_inv_fix"] + 
                                           eco["inst_costs"]["EFH"][dev] * (1 - MFH) + 
                                           eco["inst_costs"]["MFH"][dev] * MFH) +                                         
@@ -669,7 +667,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         # to the standard-scenario. The standard scenario is free of cost. 
         for dev in ("Rooftop", "GroundFloor", "OuterWall"):
             model.addConstr(c_inv[dev] == building["dimensions"]["Area"] * 
-                                          eco["crf"] * (1-shell_eco[dev]["rval"]) *                 
+                                          eco["crf"] * shell_eco[dev]["rval"] *                 
                                           building["dimensions"][dev] *
                                           (x_restruc[dev,"standard"] * 0 + 
                                            sum(x_restruc[dev,n] * 
@@ -683,7 +681,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         # chosen Window. The standard scenario is free of cost.
         dev = "Window"
         model.addConstr(c_inv[dev] == building["dimensions"]["Area"] * 
-                                      eco["crf"] * (1-shell_eco[dev]["rval"]) *
+                                      eco["crf"] * shell_eco[dev]["rval"] *
                                       building["dimensions"][dev] *
                                       (x_restruc[dev,"standard"] * 0 +
                                        sum(x_restruc[dev,n] * 
@@ -862,8 +860,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                         for d in days),
                                         name="Feed_in_rev_"+dev)
                                                    
-#%% TECHNICAL CONSTRAINTS
-                                        
+#%% TECHNICAL CONSTRAINTS                                        
                                         
 #%%Calculation of space heating in accordance with DIN V 4108
 
@@ -1411,18 +1408,48 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                     emissions_grid - 
                                     emissions_feedin)
                                                           
-#%% Subsidies:                                                          
+#%% Subsidies:      
+
+#%% For EEG and KfW-battery program:
+        
+        # Bestrict sold electricity from PV to 70% of the rated power without
+        # battery storage and 50% with storage system       
+        dev = "pv" 
+        
+        for d in days:
+            for t in time_steps:                                                
+                model.addConstr(p_sell["pv",d,t] + 
+                                p_sell["bat",d,t] <= devs[dev]["p_nom"]/
+                                                     devs[dev]["area_mean"] * 
+                                                     (capacity[dev] - 0.3 * 
+                                                      lin_pv_power["eeg"]))
+        for d in days:
+            for t in time_steps:                                                
+                model.addConstr(p_sell["pv",d,t] + 
+                                p_sell["bat",d,t] <= devs[dev]["p_nom"]/
+                                                     devs[dev]["area_mean"] * 
+                                                     (capacity[dev] - 0.5 * 
+                                                      lin_pv_power["kfw"]))
+
+        # Linearization of b_pv_power[i] * capacity["pv"]
+        for i in ("eeg", "kfw"):  
+            model.addConstr(lin_pv_power[i] <= A_max * b_pv_power[i])            
+            model.addConstr(lin_pv_power[i] >= devs[dev]["area_min"] * b_pv_power[i])            
+            model.addConstr(capacity[dev] - lin_pv_power[i] >= 0)            
+            model.addConstr(capacity[dev] - lin_pv_power[i] <= (1 - b_pv_power[i]) * A_max)                                                    
                                                           
-        #%% EEG for PV
-        dev = "pv"        
-        # Sold electricity from PV
-        model.addConstr(p_sell_pv["total"] == sum(clustered["weights"][d] * 
+#%% EEG            
+        if options["EEG"]:            
+            dev = "pv"  
+            
+            model.addConstr(b_pv_power["eeg"] <= x["pv"])
+            
+            # Sold electricity from PV
+            model.addConstr(p_sell_pv["total"] == sum(clustered["weights"][d] * 
                                               sum(p_sell[dev,d,t]
                                               for t in time_steps)
                                               for d in days) * dt)   
-        
-        if options["EEG"]:
-            
+
             pv_powerstages = ("10","40","750","10000")
             
             # Differentiation of funding rate depending on installed PV-power                       
@@ -1435,24 +1462,20 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                       for n in pv_powerstages))
             for n in pv_powerstages:
                 model.addConstr(1.0 / M * p_sell_pv[n]  <= M * b_eeg[n])
-
+            
+            # If EEG is available: subsidy instead of revenue
             # Calculation of total earnings from sold electricity
             model.addConstr(subsidy[dev] == eco["crf"] * sub_par["eeg_temp"] *
                                             sum(p_sell_pv[n] * sub_par["eeg"][n]
                                             for n in pv_powerstages),
                                             name="Feed_in_rev_"+dev)
-                                            
+            
             model.addConstr(subsidy[dev] <= M * b_pv_power["eeg"])
-            
-            model.addConstr(b_pv_power["eeg"] <= x["pv"])
-            
-            # If EEG is available: subsidy instead of revenue
             model.addConstr(revenue[dev] == 0)
-                                       
+                                                   
         else:            
             # If EEG is not available: revenue instead of subsidy
-            model.addConstr(subsidy[dev] == 0)
-            
+            model.addConstr(subsidy[dev] == 0)            
             model.addConstr(revenue[dev] == eco["b"]["eex"] * eco["crf"] *
                                             eco["price_sell_el"] *
                                             p_sell_pv["total"],
@@ -1463,6 +1486,10 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         dev = "bat"
         
         if options["kfw_battery"]:
+            
+            model.addConstr(b_pv_power["kfw"] <= x["bat"])   
+            
+            model.addConstr(subsidy[dev] <= M * b_pv_power["kfw"])
             
             model.addConstr(subsidy[dev] <= eco["crf"] * 
                                             sub_par["bat"]["share_max"] *                            
@@ -1476,58 +1503,14 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                             sub_par["bat"]["sub_bat"] *                                              
                                             pv_power,            
                                             name="Bat_Subsidies_2")
-            
-            model.addConstr(subsidy[dev] <= M * b_pv_power["kfw"])
-            
-            model.addConstr(b_pv_power["kfw"] <= x["bat"])
-        
-        else:
-            
+        else:            
             model.addConstr(subsidy[dev] == 0)
           
-            
-        #%% For EEG and KfW-Bat program:
-        
-        # Bestrict sold electricity from PV to 70% of the rated power without
-        # battery storage and 50% with storage system       
-        
-        dev = "pv" 
-        
-        for d in days:
-            for t in time_steps:                                                
-                model.addConstr(p_sell["pv",d,t] + 
-                                p_sell["bat",d,t] <= devs[dev]["p_nom"]/
-                                                     devs[dev]["area_mean"] * 
-                                                     (capacity[dev] - 0.3 * 
-                                                      lin_pv_power["eeg"]))
-
-        for d in days:
-            for t in time_steps:                                                
-                model.addConstr(p_sell["pv",d,t] + 
-                                p_sell["bat",d,t] <= devs[dev]["p_nom"]/
-                                                     devs[dev]["area_mean"] * 
-                                                     (capacity[dev] - 0.5 * 
-                                                      lin_pv_power["kfw"]))
-
-        # Linearization of b_pv_power[i] * capacity["pv"]
-        for i in ("eeg", "kfw"):  
-            model.addConstr(lin_pv_power[i] <= A_max * b_pv_power[i])
-            
-            model.addConstr(lin_pv_power[i] >= devs[dev]["area_min"] * 
-                                               b_pv_power[i])
-            
-            model.addConstr(capacity[dev] - lin_pv_power[i] >= 0)
-            
-            model.addConstr(capacity[dev] - lin_pv_power[i] <= (1 - b_pv_power[i]) * A_max)
-        
-                                                                               
-        #%% CHP        
-        dev = "chp"   
-        
+#%% CHP                
         # There are two subsidy-possibilities for chps
         # 1. Remuneration system in accordance with the KWKG
         # 2. Investment subsidy for small chps
-        
+        dev = "chp"
         model.addConstr(subsidy[dev] == sub["kwkg"] + 
                                         sub["bafa"],
                                         name = "chp_sub") 
@@ -1537,8 +1520,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         #power-efficiency-bonus - Further informations:
         #http://www.bafa.de/DE/Energie/Energieeffizienz/Kraft_Waerme_Kopplung/Mini_KWK/mini_kwk_node.html
         
-        if options["Bafa_chp"]:   
-            
+        if options["Bafa_chp"]:               
             # Only devices with p_el <= 20 kW can achieve a subsidy
             # For the modeling we distinguish betweeen three power-categories: 
             # micro: < 1kW, mini: 1 - 20 kW, large: >20kW
@@ -1589,7 +1571,8 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                              name = "chp_sub_basic_calcutation")     
            
             # Calculate annual subsidy value
-            model.addConstr(sub["bafa"] == eco["crf"] * sub_chp_basic * (1 + 
+            model.addConstr(sub["bafa"] == eco["crf"] * devs[dev]["rval"] *
+                                           sub_chp_basic * (1 + 
                                            sub_par["bafa_chp"]["share_therm_eff"] * 
                                            devs[dev]["therm_eff_bonus"] +
                                            sub_par["bafa_chp"]["share_elec_eff"] * 
@@ -1778,7 +1761,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                          name = "stc_bafa_b_e_2")                                       
            
             #Calculation of annaul subsid value      
-            model.addConstr(subsidy[dev] == eco["crf"] * 
+            model.addConstr(subsidy[dev] == eco["crf"] * devs[dev]["rval"] *
                                              (sub_bafa_stc["basic_fix"] + 
                                               sub_bafa_stc["basic_var"] + 
                                               sub_bafa_stc["inno"] + 
@@ -1936,13 +1919,13 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                                  name = dev+"_bafa_b_e_2")
                 
                 #Calculation of annaul subsidy value  
-                model.addConstr(subsidy[dev] == eco["crf"] * 
-                                                (sub_bafa_hp[dev]["basic"] + 
-                                                 sub_bafa_hp[dev]["inno"] + 
-                                                 b_bafa_hp[dev]["add1"] * 
-                                                 sub_par[dev]["smart_grid"]+
-                                                 sub_bafa_hp[dev]["build_eff"]),
-                                                 name = "hp_bafa_total_value")
+                model.addConstr(subsidy[dev] == eco["crf"] * devs[dev]["rval"] *
+                                               (sub_bafa_hp[dev]["basic"] + 
+                                                sub_bafa_hp[dev]["inno"] + 
+                                                b_bafa_hp[dev]["add1"] * 
+                                                sub_par[dev]["smart_grid"]+
+                                                sub_bafa_hp[dev]["build_eff"]),
+                                                name = "hp_bafa_total_value")
         
         else:             
             for dev in ("hp_air", "hp_geo"):         
@@ -2057,12 +2040,13 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                             name = "pellet_bafa_b_e_2")
             
             #Calculation of annaul subsid value      
-            model.addConstr(subsidy[dev] == eco["crf"] * (sub_bafa_pellet["basic"] + 
-                                                          sub_bafa_pellet["inno"] +                                       
-                                                          b_bafa_pellet["add1"] * 
-                                                          sub_par[dev]["stc_pellet_combi"]) + 
-                                                          sub_bafa_pellet["build_eff"],
-                                                          name = "pellet_bafa_total_value")
+            model.addConstr(subsidy[dev] == eco["crf"] * devs[dev]["rval"] *
+                                            (sub_bafa_pellet["basic"] + 
+                                             sub_bafa_pellet["inno"] +                                       
+                                             b_bafa_pellet["add1"] * 
+                                             sub_par[dev]["stc_pellet_combi"]) + 
+                                             sub_bafa_pellet["build_eff"],
+                                             name = "pellet_bafa_total_value")
         
         else: 
             model.addConstr(subsidy[dev] == 0)          
@@ -2070,7 +2054,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         #%%KfW-Subsidies for individual measures
                                                                                                                                   
         #Subsidy is only available if chosen restruction scenario satisfies the necessary Standard 
-        for dev in building_components:                                                                                                            
+        for dev in building_components:                                                                                                         
             model.addConstr(sum(x_restruc[dev,n] * 
                                 building["U-values"][n][dev]["U-Value"]
                                 for n in restruc_scenarios) <= sub_par["building"]["u_value"][dev] + 
@@ -2078,12 +2062,12 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
              
         #5000€ grant for every individual measure but max. 10% of the respective investment                                                                                                       
         if options["kfw_single_mea"]:
-            for dev in building_components:                 
-                model.addConstr(subsidy[dev] <= eco["crf"] * 
-                                                (1.0 - shell_eco[dev]["rval"]) * 
-                                                b_sub_restruc[dev] * 
-                                                sub_par["building"]["grant"]["ind_mea"] * 
-                                                (1-MFH))   
+            for dev in building_components:
+                
+                grant = sub_par["building"]["grant"]["ind_mea"]
+                 
+                model.addConstr(subsidy[dev] <= eco["crf"] * shell_eco[dev]["rval"] * 
+                                                b_sub_restruc[dev] * grant * (1-MFH))   
                 
                 share_max = sub_par["building"]["share_max"]["ind_mea"]
                 
@@ -2113,20 +2097,17 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                                   (1 - ep_table["TVL35"][n]) * 
                                                   (1 - b_TVL["35"]) - 7) 
                                                                               
-        model.addConstr(x["boiler"] + x["eh"] <= 1)
-        model.addConstr(x["chp"] + x["eh"] <= 1)
-        model.addConstr(x["chp"] + x["stc"] <= 1)
-        model.addConstr(x["eh"] <= x["hp_air"] + x ["hp_geo"])
+        model.addConstr(x["boiler"] + x["eh"]  <= 1)
+        model.addConstr(x["chp"]    + x["eh"]  <= 1)
+        model.addConstr(x["chp"]    + x["stc"] <= 1)
+        model.addConstr(x["hp_air"] + x["hp_geo"] >= x["eh"])
         model.addConstr(x["pellet"] + x["hp_geo"] + x["hp_air"] + x["chp"] <= 1)
 
         #Linearization: Product of H_t (continuous) and heating_concept (binary)               
         for n in heating_concept.keys():                
-            model.addConstr(lin_H_t[n] <= M * heating_concept[n])                                         
-            
-            model.addConstr(H_t - lin_H_t[n] >= 0)        
-            
+            model.addConstr(lin_H_t[n] <= M * heating_concept[n])
+            model.addConstr(H_t - lin_H_t[n] >= 0)            
             model.addConstr(H_t - lin_H_t[n] <= M * (1 - heating_concept[n]))
-                
 
         #Determination of the primary energy demand 
         model.addConstr(Q_p_DIN == 1/1000 * (ref_building["f_ql"] * 
@@ -2170,11 +2151,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                
         if options["kfw_eff_buildings"]:
             for dev in kfw_standards:
-                model.addConstr(subsidy[dev] <= eco["crf"] * 
-                                                (1 - shell_eco["Window"]["rval"]) * 
-                                                b_sub_restruc[dev] * 
-                                                sub_par["building"]["grant"][dev] * 
-                                                (1 - MFH))
+                
+                grant = sub_par["building"]["grant"][dev]
+                
+                model.addConstr(subsidy[dev] <= eco["crf"] * shell_eco["Window"]["rval"] * 
+                                                b_sub_restruc[dev] * grant * (1 - MFH))
                                                 
                 model.addConstr(subsidy[dev] <= sub_par["building"]["share_max"][dev] * 
                                                 sum(c_inv[n] for n in building_components))     
@@ -2185,8 +2166,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         
 #%% Define Scenarios 
         
-        model.addConstr(0.001 * emission <= max_emi)       
-
+        model.addConstr(0.001 * emission <= max_emi)
         model.addConstr(c_total <= max_cost)
                 
         if options["scenario"] == "free":
