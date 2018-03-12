@@ -337,8 +337,11 @@ def read_subsidies(economics, filename="raw_inputs/subsidies.xlsx"):
     
     sub_par["kwkg"]["i"] = {}
     for n in (2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500):
-        t = round(sub_par["kwkg"]["t_50"] / n)          
-        sub_par["kwkg"]["i"][str(n)] = sum(1/economics["q"]**n for n in range(1,t+1))
+        t = round(sub_par["kwkg"]["t_50"] / n)   
+        if economics["t_calc"] <= t:
+            sub_par["kwkg"]["i"][str(n)] = sum(1/economics["q"]**n for n in range(1,int(economics["t_calc"])+1))
+        else: 
+            sub_par["kwkg"]["i"][str(n)] = sum(1/economics["q"]**n for n in range(1,t+1))
     
     # Bafa subsidy for Micro CHP
     

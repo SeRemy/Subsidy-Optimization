@@ -145,7 +145,7 @@ def building_optimization(building_type, building_age, location,
     max_cost = 99999
         
     options={"opt_costs" : True,
-            "scenario": "free",
+             "scenario": "free",
              "EEG": True,
              "kfw_battery": True,
              "KWKG": True,           
@@ -175,56 +175,14 @@ def building_optimization(building_type, building_age, location,
     
     Outputs = reader.read_results(building_type + "_" + building_age)
 
-#%% Ausgabe: 
- 
-#    print(" ")
-#    print(" ")
-#    print(" ")
-#    print("Annuität: " + str(round(Outputs["1_ObjVal"],1)) + " €/a")
-#    print(" ")
-#    
-#    print("Emissionen: " + str(round(Outputs["4_emission"],1)) + " t/a")
-#    print(" ")    
-#    
-#    print("Fördergelder:")
-#    print(" ")
-#    for i in Outputs["res_sub"].keys():       
-#        if Outputs["res_sub"][i] > 0.0:
-#            print(i + ": " + str(round(Outputs["res_sub"][i],1)) + " €/a")
-#            print(" ")
-#    
-#    print("Anlagentechnik:")
-#    print(" ")
-#    for i in Outputs["5_x"].keys():       
-#        if Outputs["5_x"][i] == 1:
-#            if i == "boiler" or i == "eh" or i == "hp_air" or \
-#                i == "hp_geo" or i == "chp" or i == "pellet":
-#                j = " kW"
-#            elif i =="stc" or i =="pv":
-#                j = " m²"
-#            elif i == "tes":
-#                j = " m³"
-#            elif i == "bat":
-#                j = " kWh"
-#            
-#            print(i + ": " + str(round(Outputs["6_cap"][i],1)) + j)
-#            print(" ")
-#            
-#    print("Gebäudehülle:")
-#    print(" ")
-#    for i in Outputs["7_x_restruc"].keys():
-#        if Outputs["7_x_restruc"][i] == 1:        
-#            print(i)
-#            print(" ")
-
     return Outputs
     
 #%% Define Building parameters: 
 
 if __name__ == "__main__":
     
-    # Building parameters: 
-    building_type = "SFH"       # SFH, TH, MFH, AB
+     # Building parameters: 
+    building_type = "MFH"       # SFH, TH, MFH, AB
     
     building_age  = "1969 1978" # 0 1859, 1860 1918, 1919 1948, 1949 1957, 
                                 # 1958 1968, 1969 1978, 1979 1983, 1984 1994,
@@ -238,14 +196,14 @@ if __name__ == "__main__":
     
     useable_roofarea  = 0.25    #Default value: 0.25
     
-    apartment_quantity = 1    # SFH and TH: 1 - Always
+    apartment_quantity = 8      # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
                                 # AB: 15, 20, 25, 30, 35 
                                 
-    apartment_size = 120         # SFH and TH: average 110 - 120 m² in Germany
+    apartment_size = 70         # SFH and TH: average 110 - 120 m² in Germany
                                 # MFH and AB: avergae 60 - 70 m² in Germany 
 
-    household_size = 5          # SFH and TH: 1, 2, 3, 4, 5
+    household_size = 3          # SFH and TH: 1, 2, 3, 4, 5
                                 # MFH and AB: not relevant
     
     electricity_demand = "medium"   # low, medium, high  
