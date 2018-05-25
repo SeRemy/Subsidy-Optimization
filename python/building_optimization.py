@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """
 @author: srm
 """
+
 from __future__ import division
 import gurobipy as gp
 import numpy as np
@@ -121,17 +121,14 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         - Upper bound for CO2 emissions
         
     max_cost : float
-        - Upper bound for annual costs
-        
+        - Upper bound for annual costs        
     """
     
     # Extract parameters
     dt = params["dt"]
     time_steps = range(params["time_steps"])
     days       = range(params["days"])    
-    
-    
-    
+        
     # Define subsets
     heater  = ("boiler", "chp", "eh", "hp_air", "hp_geo","pellet")
     storage = ("bat", "tes")
@@ -168,7 +165,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                  for dev in list(devs.keys())}
                      
         c_dem  = {dev: model.addVar(vtype="C", name="c_dem_"+dev)
-                 for dev in ("boiler", "chp", "pellet", "grid_hou", "grid_hp")}   
+                 for dev in ("boiler", "chp", "pellet", "grid_house", "grid_hp")}   
                  
         c_fix  = {dev: model.addVar(vtype="C", name="c_fix_"+dev)
                  for dev in ("el", "gas")}    
@@ -287,7 +284,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 timetag = "_"+str(d)+"_"+str(t)
                 
-                p_grid["grid_hou",d,t] = model.addVar(vtype="C", name="p_grid_hou"+timetag)
+                p_grid["grid_house",d,t] = model.addVar(vtype="C", name="p_grid_house"+timetag)
                 
                 p_grid["grid_hp",d,t]  = model.addVar(vtype="C", name="p_grid_hp"+timetag)
                 
@@ -299,32 +296,6 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                     
                     p_hp[dev,d,t]   = model.addVar(vtype="C", name="P_hp_"+dev+timetag)
 
-        # Amount of gas consumed
-        gas_tariffs = eco["gas"].keys()
-        
-        G = {}
-        for tar in gas_tariffs:
-            G[tar] = {}
-            for dev in ("boiler","chp"):
-                for n in range(len(eco["gas"][tar]["lb"])):
-                    G[tar][dev,n] = model.addVar(vtype="C", name="G_"+dev+"_"+str(n))
-        
-        G_total = {dev: model.addVar(vtype="C", name="G_total_"+dev)
-                  for dev in ("boiler","chp")}
-        
-        # Amount of electricity consumed
-        el_tariffs = eco["el"].keys()
-        
-        El = {}
-        for tar in el_tariffs:
-            El[tar] = {}
-            for dev in ("grid_hou","grid_hp"):
-                for n in range(len(eco["el"][tar]["lb"])):
-                    El[tar][dev,n] = model.addVar(vtype="C", name="El_"+dev+"_"+str(n))
-        
-        El_total = {dev: model.addVar(vtype="C", name="El_total_"+dev)
-                    for dev in ("grid_hou","grid_hp")}
-                                       
         # Split EH for HP tariff
         eh_split = {}
         
@@ -336,29 +307,6 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                 
                 eh_split["eh_w/_hp",d,t]  = model.addVar(vtype="C", 
                                                      name="p_eh_w/_hp"+timetag)
-                                
-        # Tariffs    
-        x_tariff = {"gas":{}, "el":{}}   
-        
-        # All tariff gradations
-        for tar in gas_tariffs:
-            x_tariff["gas"][tar] = {}
-            for n in range(len(eco["gas"][tar]["lb"])):            
-                x_tariff["gas"][tar][n] = model.addVar(vtype="B", 
-                                               name="x_tariff_"+tar+"_"+str(n))
-        
-        for tar in el_tariffs:
-            x_tariff["el"][tar] = {}
-            for n in range(len(eco["el"][tar]["lb"])):            
-                x_tariff["el"][tar][n] = model.addVar(vtype="B", 
-                                               name="x_tariff_"+tar+"_"+str(n))
-        
-        # General tariff decision variables
-        x_gas = {tar: model.addVar(vtype="B", name="x_"+tar)
-                for tar in gas_tariffs}
-                    
-        x_el = {tar: model.addVar(vtype="B", name="x_"+tar)
-                for tar in el_tariffs}     
                 
         # Design heat load following DIN EN 12831
         dsh = model.addVar(vtype = "C", name = "dsh" )
@@ -544,24 +492,18 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         for i in ("basic", "inno", "storage"):        
             lin_sub_pellet[i]= model.addVar(vtype = "C", 
                                             name = "lin_sub_pellet_"+i, lb = 0)            
-                
-
             
-#%% Objectives      
+#%% Set Objectives      
                    
         c_total = model.addVar(vtype="C", name="c_total", lb= -gp.GRB.INFINITY)
         
-        emission = model.addVar(vtype="C", name= "CO2_emission",
-                                                          lb= -gp.GRB.INFINITY)      
-                
-        # Update
-        model.update()
+        emission = model.addVar(vtype="C", name= "CO2_emission", lb= -gp.GRB.INFINITY)      
 
-#%% Set Objective
+        model.update()
 
         if options["opt_costs"]:
             model.setObjective(c_total, gp.GRB.MINIMIZE)
-        
+                    
         else:
             model.setObjective(emission, gp.GRB.MINIMIZE)
 
@@ -697,153 +639,56 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             model.addConstr(c_om[dev] == eco["b"]["infl"] * devs[dev]["c_om_rel"] * c_inv[dev])
 
         #%% Demand related costs:
-
-        # Gas:
-        # Exactly one gas tariff if at least one chp or boiler is installed        
-        for dev in ("chp", "boiler"):
-            model.addConstr(x[dev] <= sum(x_gas[key] 
-                                      for key in x_gas.keys()),
-                                      name="single_gas_tariff_"+dev)
+        
+        #Household Electricity
+        dev = "grid_house"
             
-        model.addConstr(1 <= sum(x_gas[key] 
-                             for key in x_gas.keys()),
-                             name="single_gas_tariff_overall")
-
-        for tar in gas_tariffs:
-            # Choose one tariff level for the dertermined gas tariff
-            model.addConstr(x_gas[tar] == sum(x_tariff["gas"][tar][n] 
-                                          for n in x_tariff["gas"][tar].keys()),
-                                          name="gas_levels_"+tar+"_"+str(n))
-            
-            # The tariff level is restricted by the consumed gas amount
-            for n in x_tariff["gas"][tar].keys():
-                model.addConstr(x_tariff["gas"][tar][n] * 
-                                eco["gas"][tar]["lb"][n] <= (G[tar]["boiler",n] + 
-                                                             G[tar]["chp",n]) * 0.001,
-                                                             name="gas_level_lb"+tar+"_"+str(n))
+        el_total_house = (dt * sum(clustered["weights"][d] * sum(p_grid[dev,d,t] 
+                          for t in time_steps) for d in days) * dt)
+        
+        model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["el"] * 
+                                      el_total_house * eco["el"]["el_sta"]["var"][0])
+        
+        #Electricity for HP               
+        dev = "grid_hp"
+        el_total_hp = (dt * sum(clustered["weights"][d] * sum(p_grid[dev,d,t] 
+                       for t in time_steps) for d in days) * dt)
+        
+        model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["el"] *  
+                                       el_total_hp * eco["el"]["el_hp"]["var"][0])
                 
-                model.addConstr(x_tariff["gas"][tar][n] * 
-                                eco["gas"][tar]["ub"][n] >= (G[tar]["boiler",n] + 
-                                                             G[tar]["chp",n]) * 0.001,
-                                                             name="gas_level_ub"+tar+"_"+str(n))
-                
-        # Divide because of energy tax
-        for dev in ("boiler","chp"):   
-            # Total amount of gas used
-            model.addConstr(G_total[dev] == sum(sum(G[tar][dev,n] 
-                                            for n in x_tariff["gas"][tar].keys())
-                                            for tar in gas_tariffs))
-                    
-            model.addConstr(G_total[dev] == sum(dt * clustered["weights"][d] * 
-                                            sum(energy[dev,d,t] 
-                                            for t in time_steps)
-                                            for d in days))
-            # Variable gas costs
-            if dev == "chp":
-                model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["gas"] *                                
-                                              sum(sum(G[tar][dev,n] * 
-                                              (eco["gas"][tar]["var"][n] - eco["energy_tax"])
-                                              for n in x_tariff["gas"][tar].keys())
-                                              for tar in gas_tariffs),
-                                               name="c_dem_"+dev)
-            else: 
-                model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["gas"] *                                
-                                              sum(sum(G[tar][dev,n] * 
-                                              eco["gas"][tar]["var"][n]
-                                              for n in x_tariff["gas"][tar].keys())
-                                              for tar in gas_tariffs)  ,
-                                              name="c_dem_"+dev)
-
-        # Electricity:                   
-        # Choose one tariff for general electricity purchase                
-        non_hp_tariffs = sum(x_el[tar] 
-                         for tar in x_el.keys() 
-                         if eco["el"][tar]["hp"] == 0)
+        #CHP:
+        dev = "chp"
+        gas_total_chp = (dt * sum(clustered["weights"][d] * sum(energy[dev,d,t] 
+                         for t in time_steps) for d in days))
         
-        model.addConstr(non_hp_tariffs == 1, name="single_el_tariff")
-
-        # If a HP is installed, the HP tariff is available
-        hp_tariffs = sum(x_el[tar] 
-                     for tar in x_el.keys() 
-                     if eco["el"][tar]["hp"] == 1)
+        model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["gas"] * gas_total_chp *
+                                     (eco["gas"]["gas_sta"]["var"][0] - eco["energy_tax"])) 
+                                                                  
+        #BOI
+        dev = "boiler"
+        gas_total_boi = (dt * sum(clustered["weights"][d] * sum(energy[dev,d,t] 
+                         for t in time_steps) for d in days))
         
-        if options["HP tariff"]:
-            # Allow special heat pump tariffs
-            model.addConstr(hp_tariffs <= x["hp_air"] + x["hp_geo"],
-                            name="optional_hp_tariff")
-        else:
-            # Prohibit special heat pump tariffs
-            model.addConstr(hp_tariffs <= 0, 
-                            name="optional_hp_tariff")
-
-        # grid_hou electricity cannot be purchased with el_hp tariff
-        for tar in x_el.keys():
-            if eco["el"][tar]["hp"] == 1:
-                for n in x_tariff["el"][tar].keys():
-                    model.addConstr(El[tar]["grid_hou",n] == 0)
+        model.addConstr(c_dem[dev] == (eco["crf"] * eco["b"]["gas"] * 
+                                       gas_total_boi * eco["gas"]["gas_sta"]["var"][0]))
         
-        for tar in el_tariffs:
-            # Choose one tariff level for the dertermined el tariff
-            model.addConstr(sum(x_tariff["el"][tar][n] 
-                            for n in x_tariff["el"][tar].keys()) == x_el[tar])
-            
-            # The tariff level is restricted by the consumed el amount
-            for n in x_tariff["el"][tar].keys():
-                model.addConstr(x_tariff["el"][tar][n] * 
-                                eco["el"][tar]["lb"][n] <= (El[tar]["grid_hou",n] + 
-                                                            El[tar]["grid_hp",n]) * 0.001,
-                                                            name="el_level_lb_"+tar+"_"+str(n))
-                
-                model.addConstr(x_tariff["el"][tar][n] * 
-                                eco["el"][tar]["ub"][n] >= (El[tar]["grid_hou",n] + 
-                                                            El[tar]["grid_hp",n]) * 0.001,
-                                                            name="el_level_ub_"+tar+"_"+str(n))
-            
-        # Devide because of optional HP tariff
-        for dev in ("grid_hou", "grid_hp"):
-            # Total amount of electricity used
-            model.addConstr(El_total[dev] == sum(sum(El[tar][dev,n] 
-                                             for n in x_tariff["el"][tar].keys())
-                                             for tar in el_tariffs))
-            
-            model.addConstr(El_total[dev] == sum(clustered["weights"][d] * 
-                                             sum(p_grid[dev,d,t] 
-                                             for t in time_steps)
-                                             for d in days) * dt)
-        
-            # Variable electricity costs
-            model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["el"] *                             
-                                          sum(sum(El[tar][dev,n] * 
-                                          eco["el"][tar]["var"][n]
-                                          for n in x_tariff["el"][tar].keys())
-                                          for tar in el_tariffs),
-                                          name="c_dem_"+dev)
-               
-        # Pellets
+        #PELLET
         dev = "pellet"
-        model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["pel"] * 
-                                      eco["pel"]["pel_sta"]["var"][0] * dt *      
-                                      sum(clustered["weights"][d] *  
-                                      sum(energy[dev,d,t]
-                                      for t in time_steps) 
-                                      for d in days), 
-                                      name="c_dem_"+dev)     
         
-        #%% Fixed administration costs: 
-                                      
+        pel_total = (dt * sum(clustered["weights"][d] * sum(energy[dev,d,t]
+                     for t in time_steps) for d in days))
+        
+        model.addConstr(c_dem[dev] == eco["crf"] * eco["b"]["pel"] * pel_total *
+                                      eco["pel"]["pel_sta"]["var"][0])     
+    
+        #%% Fixed administration costs:                    
+                         
         # Electricity
-        model.addConstr(c_fix["el"] == sum(sum(x_tariff["el"][tar][n] * 
-                                       eco["el"][tar]["fix"][n]
-                                       for n in x_tariff["el"][tar].keys())
-                                       for tar in el_tariffs),
-                                       name="c_fix_el")
-                          
+        model.addConstr(c_fix["el"] == eco["el"]["el_sta"]["fix"][0])
+                                                 
         # Gas
-        model.addConstr(c_fix["gas"] == sum(sum(x_tariff["gas"][tar][n] * 
-                                        eco["gas"][tar]["fix"][n]
-                                        for n in x_tariff["gas"][tar].keys())
-                                        for tar in gas_tariffs),
-                                        name="c_fix_gas")
+        model.addConstr(c_fix["gas"] == eco["gas"]["gas_sta"]["fix"][0])
                                                                                                                            
         #%% Revenues for selling chp-electricity to the grid
         
@@ -884,12 +729,14 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                 
                 Q_p_ref = ref_building["Q_p"]
                 H_t_ref = ref_building["H_t_spec"]
-                M = Q_p_ref * 5
+                M = Q_p_ref * 50
                                        
                 model.addConstr(x_restruc[dev,n] <=  u_ref / u_var + b_ind_mea)
-                                
+                
+                M = H_t_ref * 10   
                 model.addConstr(H_t / total_shell <= H_t_ref + (1 - b_ind_mea) * M) 
-                                 
+            
+                M = Q_p_ref * 10          
                 model.addConstr(Q_p_DIN <= Q_p_ref + (1.0 - b_ind_mea) * M)
         
         #Correction factors for components that have no contact with the ambient ait
@@ -1033,7 +880,8 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                         
                 model.addConstr(energy[dev,d,t] * omega == (heat[dev,d,t] + 
                                                             power[dev,d,t]),
-                                                            name="Energy_equation_"+dev+"_"+timetag)
+                                                            name="Energy_equation_"+
+                                                            dev+"_"+timetag)
                     
         dev = "eh"
         for d in days:
@@ -1238,7 +1086,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                     model.addConstr(clustered["electricity"][d,t] +
                                     clustered["dhw"][d,t] +
                                     eh_split["eh_w/o_hp",d,t] + 
-                                    ch["bat",d,t] == p_grid["grid_hou",d,t] + 
+                                    ch["bat",d,t] == p_grid["grid_house",d,t] + 
                                                      sum(p_use[dev,d,t] 
                                                      for dev in ("pv","bat","chp")),
                                                      name="El_bal_w/o_HPtariff"
@@ -1279,7 +1127,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                     # For components without hp-tariff (p_use["bat"] referring to discharge)
                     model.addConstr(clustered["electricity"][d,t] +
                                     eh_split["eh_w/o_hp",d,t] + 
-                                    ch["bat",d,t] == p_grid["grid_hou",d,t] + 
+                                    ch["bat",d,t] == p_grid["grid_house",d,t] + 
                                                      sum(p_use[dev,d,t] 
                                                      for dev in ("pv","bat","chp")),
                                                      name="El_bal_w/o_HPtariff"
@@ -1378,28 +1226,17 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             model.addConstr(dsh == 0)
      
 #%% CO2-Emissions
-     
-        emission_pellet = (eco["pel"]["pel_sta"]["emi"] * 
-                           sum(clustered["weights"][d] * dt * 
-                           sum(energy["pellet",d,t] 
-                           for t in time_steps) 
-                           for d in days))
+            
+        emission_pellet = eco["pel"]["pel_sta"]["emi"] * pel_total
 
-        emissions_gas = sum(eco["gas"][tar]["emi"] * 
-                        sum((G[tar]["boiler",n] + G[tar]["chp",n]) 
-                        for n in x_tariff["gas"][tar].keys())
-                        for tar in gas_tariffs)
+        emissions_gas = eco["gas"]["gas_sta"]["emi"] * (gas_total_chp + gas_total_boi)
         
-        emissions_grid = sum(eco["el"][tar]["emi"] * 
-                         sum((El[tar]["grid_hou",n] + El[tar]["grid_hp",n])
-                         for n in x_tariff["el"][tar].keys()) 
-                         for tar in el_tariffs)
+        emissions_grid = eco["el"]["el_sta"]["emi"] * (el_total_hp + el_total_house)
                
         emissions_feedin = 0.566 * sum(clustered["weights"][d] * dt * 
                                    sum(sum(p_sell[dev,d,t] 
                                    for dev in ("pv","bat","chp"))
-                                   for t in time_steps)
-                                   for d in days)
+                                   for t in time_steps) for d in days)
         
         model.addConstr(emission == emission_pellet + 
                                     emissions_gas + 
@@ -1440,9 +1277,9 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             dev = "pv"  
             # Sold electricity from PV
             model.addConstr(p_sell_pv["total"] == sum(clustered["weights"][d] * 
-                                              sum(p_sell[dev,d,t]
-                                              for t in time_steps)
-                                              for d in days) * dt)   
+                                                  sum(p_sell[dev,d,t]
+                                                  for t in time_steps)
+                                                  for d in days) * dt)   
             
         if options["EEG"]:   
           
@@ -1459,9 +1296,12 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             model.addConstr(p_sell_pv["total"] == sum(p_sell_pv[n] 
                                                       for n in pv_powerstages))
             
-            #Define Big-M Formulation
-            irr_ann = np.sum(clustered["weights"] * np.sum(clustered["solar_roof"], axis = 1)) #kwh/m²
+            #Calculate max. annual PV-Electricity for available Rooftoparea
+            irr_ann = np.sum(clustered["weights"] * 
+                             np.sum(clustered["solar_roof"], axis = 1)) #kwh/m²
+            
             eta_max_pv = np.max(devs["pv"]["eta_el"]) #%
+           
             p_pv_max = irr_ann * A_max * eta_max_pv #kWh/a
             
             for n in pv_powerstages:
@@ -1495,8 +1335,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             
             model.addConstr(b_pv_power["kfw"] <= x["bat"])               
             
-            M = (A_max * devs["pv"]["p_nom"] / devs["pv"]["area_mean"] * eco["crf"] * 
-                 sub_par["bat"]["share_max"] * sub_par["bat"]["sub_bat_max"])
+            M = (eco["crf"] * A_max * 
+                 devs["pv"]["p_nom"] / 
+                 devs["pv"]["area_mean"] * 
+                 sub_par["bat"]["share_max"] * 
+                 sub_par["bat"]["sub_bat_max"])
             
             model.addConstr(subsidy[dev] <= M * b_pv_power["kfw"])
             
@@ -1520,8 +1363,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         # 1. Remuneration system in accordance with the KWKG
         # 2. Investment subsidy for small chps
         dev = "chp"
-        model.addConstr(subsidy[dev] == sub["kwkg"] + 
-                                        sub["bafa"],
+        model.addConstr(subsidy[dev] == sub["kwkg"] + sub["bafa"],
                                         name = "chp_sub") 
                                             
         #BAFA-Subsidy for Mirco-CHP
@@ -2206,16 +2048,17 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             pass
         
         elif options ["scenario"] == "benchmark":
-            model.addConstr(x["boiler"] == 1)            
+            model.addConstr(x["boiler"] == 1)    
+            model.addConstr(x["pv"] == 0)
             for i in building_components:
                 model.addConstr(x_restruc[i,"standard"] == 1)
         
-#        elif options ["scenario"] == "s1":
-##            for i in building_components:
-#            model.addConstr(x_restruc["Window","standard"] == 1)
-#            model.addConstr(x_restruc["GroundFloor","adv_retr"] == 1)
-#            model.addConstr(x_restruc["Rooftop","adv_retr"] == 1)
-#            model.addConstr(x_restruc["OuterWall","retrofit"] == 1)
+        elif options ["scenario"] == "s1":
+#            for i in building_components:
+#            model.addConstr(x_restruc["Window","retrofit"] == 1)
+#            model.addConstr(x_restruc["GroundFloor","retrofit"] == 1)
+            model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
+#            model.addConstr(x_restruc["OuterWall","adv_retr"] == 1)
 #            model.addConstr(x["boiler"] == 1)
 #            model.addConstr(x["pv"] == 1)
 #            model.addConstr(capacity["pv"] == 31.7)
@@ -2267,71 +2110,62 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         # Operation
         res_y = {}
         for dev in ("pellet","stc","boiler","hp_geo","hp_air","eh","chp"):
-            res_y[dev] = np.array([[y[dev,d,t].X for t in time_steps] for d in days])
-
-        # Tariffs
-        res_x_tariff = {"el":{}, "gas":{}}
-        for key in ("el", "gas"):
-            for tar in x_tariff[key].keys():
-                res_x_tariff[key][tar] = {}
-                for dev in x_tariff[key][tar].keys():
-                    res_x_tariff[key][tar][dev] = x_tariff[key][tar][dev].X
-
-        res_x_gas    = {tar: x_gas[tar].X for tar in x_gas.keys()}
-        res_x_el     = {tar: x_el[tar].X  for tar in x_el.keys()}
+            res_y[dev] = np.array([[y[dev,d,t].X 
+                                   for t in time_steps] for d in days])
 
         # heat and electricity output
         res_power = {}
         res_heat  = {}
         res_energy = {}
         for dev in ("boiler", "chp", "hp_air", "hp_geo", "eh", "stc", "pellet"): 
-            res_heat[dev]  = np.array([[heat[dev,d,t].X  for t in time_steps] for d in days])
+            res_heat[dev]  = np.array([[heat[dev,d,t].X  
+                                       for t in time_steps] for d in days])
+       
         for dev in ("hp_air", "hp_geo", "eh"):
-            res_power[dev] = np.array([[power[dev,d,t].X for t in time_steps] for d in days])      
+            res_power[dev] = np.array([[power[dev,d,t].X 
+                                       for t in time_steps] for d in days]) 
+     
         for dev in ("boiler", "chp", "pellet"):
-            res_energy[dev] = np.array([[energy[dev,d,t].X for t in time_steps] for d in days])
-        
-        # Gas/El consumption        
-        res_G_total  = {dev: G_total[dev].X  for dev in G_total.keys()}
-        res_El_total = {dev: El_total[dev].X for dev in El_total.keys()}
-        res_G  = {}
-        res_El = {}
-        for tar in gas_tariffs:
-            res_G[tar] = {}
-            for dev in ("boiler","chp"):
-                for n in x_tariff["gas"][tar].keys():
-                    res_G[tar][dev,n] = G[tar][dev,n].X
-        for tar in el_tariffs:
-            res_El[tar] = {}
-            for dev in ("grid_hou","grid_hp"):
-                for n in x_tariff["el"][tar].keys():
-                    res_El[tar][dev,n] = El[tar][dev,n].X
+            res_energy[dev] = np.array([[energy[dev,d,t].X 
+                                        for t in time_steps] for d in days])
 
         # State of charge for storage systems
         res_soc = {}
         for dev in storage:
-            res_soc[dev] = np.array([[soc[dev,d,t].X for t in time_steps] for d in days])
+            res_soc[dev] = np.array([[soc[dev,d,t].X 
+                                     for t in time_steps] for d in days])
     
         # Purchased power from the grid for either feeding a hp tariff component or a different (standard/eco tariff)
         res_p_grid          = {}
-        res_p_grid["house"] = np.array([[p_grid["grid_hou",d,t].X for t in time_steps] for d in days])
-        res_p_grid["hp"]    = np.array([[p_grid["grid_hp",d,t].X  for t in time_steps] for d in days])
+        res_p_grid["house"] = np.array([[p_grid["grid_house",d,t].X 
+                                        for t in time_steps] for d in days])
+    
+        res_p_grid["hp"]    = np.array([[p_grid["grid_hp",d,t].X  
+                                        for t in time_steps] for d in days])
 
         # Charge and discharge power for storage
         res_ch  = {}
         res_dch = {}
         for dev in ("bat","tes"):           
-            res_ch[dev]  = np.array([[ch[dev,d,t].X  for t in time_steps] for d in days])
-            res_dch[dev] = np.array([[dch[dev,d,t].X for t in time_steps] for d in days])
+            res_ch[dev]  = np.array([[ch[dev,d,t].X  
+                                     for t in time_steps] for d in days])
+    
+            res_dch[dev] = np.array([[dch[dev,d,t].X 
+                                     for t in time_steps] for d in days])
 
         # Power going from an electricity offering component to the demand/the grid/a hp tariff component
         res_p_use  = {}
         res_p_sell = {}
         res_p_hp   = {}
         for dev in ("pv", "bat","chp"):
-            res_p_use[dev]  = np.array([[p_use[dev,d,t].X  for t in time_steps] for d in days])
-            res_p_sell[dev] = np.array([[p_sell[dev,d,t].X for t in time_steps] for d in days])
-            res_p_hp[dev]   = np.array([[p_hp[dev,d,t].X   for t in time_steps] for d in days])
+            res_p_use[dev]  = np.array([[p_use[dev,d,t].X  
+                                        for t in time_steps] for d in days])
+    
+            res_p_sell[dev] = np.array([[p_sell[dev,d,t].X 
+                                        for t in time_steps] for d in days])
+    
+            res_p_hp[dev]   = np.array([[p_hp[dev,d,t].X  
+                                        for t in time_steps] for d in days])
         
         # Costs
         res_c_inv   = {dev: c_inv[dev].X    for dev in c_inv.keys()}
@@ -2342,11 +2176,11 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         res_sub     = {dev: subsidy[dev].X  for dev in subsidy.keys()}
         
         res_c_total =   (sum(res_c_inv[key]  for key in c_inv.keys())
-                       + sum(res_c_om[key]    for key in c_om.keys())
-                       + sum(res_c_dem[key]   for key in c_dem.keys())
-                       + sum(res_c_fix[key]   for key in c_fix.keys())
-                       - sum(res_rev[key] for key in revenue.keys())
-                       - sum(res_sub[key] for key in subsidy.keys()))  
+                       + sum(res_c_om[key]   for key in c_om.keys())
+                       + sum(res_c_dem[key]  for key in c_dem.keys())
+                       + sum(res_c_fix[key]  for key in c_fix.keys())
+                       - sum(res_rev[key]    for key in revenue.keys())
+                       - sum(res_sub[key]    for key in subsidy.keys()))  
                 
         res_soc_init = {}
         for dev in storage:
@@ -2356,19 +2190,23 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         res_power_nom = {}
         res_heat_nom = {}
         for dev in heater:
-            res_heat_nom[dev] = np.array([[heat_nom[dev,d,t].X for t in time_steps] for d in days])
+            res_heat_nom[dev] = np.array([[heat_nom[dev,d,t].X 
+                                          for t in time_steps] for d in days])
 
         for dev in ("hp_air","hp_geo"):
-            res_power_nom[dev] = np.array([[power_nom[dev,d,t].X for t in time_steps] for d in days])        
+            res_power_nom[dev] = np.array([[power_nom[dev,d,t].X 
+                                           for t in time_steps] for d in days])        
        
         res_cap = {dev : capacity[dev].X for dev in capacity.keys()}
         
         res_eh_split = {}
         for dev in ("eh_w/o_hp","eh_w/_hp"):
-            res_eh_split[dev] = np.array([[eh_split[dev,d,t].X for t in time_steps] for d in days])
+            res_eh_split[dev] = np.array([[eh_split[dev,d,t].X 
+                                          for t in time_steps] for d in days])
             
         res_heat_mod = {}  
-        res_heat_mod[d,t] = np.array([[heat_mod[d,t].X for t in time_steps] for d in days])
+        res_heat_mod[d,t] = np.array([[heat_mod[d,t].X 
+                                      for t in time_steps] for d in days])
         
         res_Ht = H_t.X/total_shell
         
@@ -2393,10 +2231,13 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         for n in heating_concept.keys():    
             res_lin_Ht[n] = lin_H_t[n].X
               
-        res_b_sub_restruc = {dev : b_sub_restruc[dev].X for dev in b_sub_restruc.keys()}
-        res_heating_concept = {n : heating_concept[n].X  for n in heating_concept.keys()}
+        res_b_sub_restruc   = {dev : b_sub_restruc[dev].X 
+                               for dev in b_sub_restruc.keys()}
         
-
+        
+        res_heating_concept = {n : heating_concept[n].X 
+                               for n in heating_concept.keys()}
+        
         res_sub_chp = {n: sub[n].X for n in sub.keys()}
         
         res_b_pv_power = {i: b_pv_power[i].X for i in ("kfw", "eeg")}
@@ -2430,17 +2271,10 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         with open(options["filename_results"], "wb") as fout:
             pickle.dump(res_x, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_y, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_x_tariff, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_x_gas, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_x_el, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_power, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_heat, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_energy, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_p_grid, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_G, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_G_total, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_El, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_El_total, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_soc, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_soc_init, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_ch, fout, pickle.HIGHEST_PROTOCOL)
