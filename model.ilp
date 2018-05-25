@@ -1,0 +1,25 @@
+\ Model Design computation_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+ 
+Subject To
+ R1211: x_Window_standard + x_Window_retrofit + x_Window_adv_retr = 1
+ R1221: x_OuterWall_retrofit - b_ind_mea <= 0.7777777777777779
+ R1225: 0.00285750208597652 H_t + 3.436440009601207 b_ind_mea
+   <= 3.780084010561328
+ R1239: - 55.776 x_Window_standard - 25.896 x_Window_retrofit
+   - 15.936 x_Window_adv_retr - 175.75128 x_OuterWall_standard
+   - 45.84815999999999 x_OuterWall_retrofit - 12.7356 x_OuterWall_adv_retr
+   - 39.04056 x_GroundFloor_standard - 12.47688 x_GroundFloor_retrofit
+   - 9.25704 x_GroundFloor_adv_retr - 192.552 x_Rooftop_standard
+   - 47.46 x_Rooftop_retrofit - 18.984 x_Rooftop_adv_retr + H_t = 17.4978
+ R17587: x_Rooftop_retrofit = 1
+ R17588: x_OuterWall_retrofit = 1
+Bounds
+ H_t free
+Binaries
+ x_Window_standard x_Window_retrofit x_Window_adv_retr x_OuterWall_standard
+ x_OuterWall_retrofit x_OuterWall_adv_retr x_GroundFloor_standard
+ x_GroundFloor_retrofit x_GroundFloor_adv_retr x_Rooftop_standard
+ x_Rooftop_retrofit x_Rooftop_adv_retr b_ind_mea
+End
