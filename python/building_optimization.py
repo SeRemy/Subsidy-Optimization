@@ -2057,9 +2057,9 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
 #            for i in building_components:
 #            model.addConstr(x_restruc["Window","retrofit"] == 1)
 #            model.addConstr(x_restruc["GroundFloor","retrofit"] == 1)
-            model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
+#            model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
 #            model.addConstr(x_restruc["OuterWall","adv_retr"] == 1)
-#            model.addConstr(x["boiler"] == 1)
+            model.addConstr(x["bat"] == 1)
 #            model.addConstr(x["pv"] == 1)
 #            model.addConstr(capacity["pv"] == 31.7)
 #            model.addConstr(capacity["boiler"] == 18)

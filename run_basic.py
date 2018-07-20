@@ -118,7 +118,7 @@ def building_optimization(building_type, building_age, location,
                                          norm = 2,
                                          mip_gap = 0.0,
                                          weights = [8,8,8,3,1,1,1,1,1])
-                 
+    
     # Determine time steps per day
     len_day = int(inputs_clustering.shape[1] / 365)
     
@@ -246,19 +246,19 @@ if __name__ == "__main__":
                                 # 1958 1968, 1969 1978, 1979 1983, 1984 1994,
                                 # 1995 2001, 2002 2009, 2010 2015, 2016 2100  
     
-    location      = "Garmisch"     # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
+    location      = "Essen"     # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
                                 # Bad Marienberg (Westerwald), Kassel, 
                                 # Braunlage (Harz), Chemnitz, Hof (Oberfranken), 
                                 # Fichtelberg (Erzgebirge), Mannheim, 
                                 # Mühldorf (München), Stötten (Kempten), Garmisch    
         
-    useable_roofarea  = 0.25    #Default value: 0.25
+    useable_roofarea  = 0.30    #Default value: 0.25
     
     apartment_quantity = 1      # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
                                 # AB: 15, 20, 25, 30, 35 
                                 
-    apartment_size = 110        # SFH and TH: average 110 - 120 m² in Germany
+    apartment_size = 120        # SFH and TH: average 110 - 120 m² in Germany
                                 # MFH and AB: avergae 60 - 70 m² in Germany 
     
     household_size = 3          # SFH and TH: 1, 2, 3, 4, 5
@@ -284,8 +284,8 @@ if __name__ == "__main__":
                "kfw_single_mea" : True,         
                #Further parameters
                "New_Building" : False,
-               "dhw_electric" : True,
-               "scenario": "free",
+               "dhw_electric" : False,
+               "scenario": "s1",
                "Design_heat_load" : True,
                "store_start_vals" : False,
                "load_start_vals" : False,
