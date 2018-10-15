@@ -943,8 +943,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
 
         dev = "pv"
         eta_inverter = 0.97
-        model.addConstr(pv_power == capacity[dev] * devs[dev]["p_nom"] / 
-                                                    devs[dev]["area_mean"])  
+        model.addConstr(pv_power == capacity[dev] * devs[dev]["p_nom"] / devs[dev]["area_mean"])  
         for d in days:
             for t in time_steps:
                 timetag = "_" + str(d) + "_" + str(t)

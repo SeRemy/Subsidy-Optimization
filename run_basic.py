@@ -18,8 +18,6 @@ def building_optimization(building_type, building_age, location,
                           household_size, electricity_demand, 
                           dhw_demand, useable_roofarea, 
                           apartment_quantity, apartment_size, options):
-
-
     
 #%% Read inputs  
     
