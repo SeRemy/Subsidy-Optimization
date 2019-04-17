@@ -40,12 +40,28 @@ def building_optimization(building_type, building_age, location,
     
     raw_inputs["temperature"] = np.loadtxt("raw_inputs/weather_files/" 
                                               + location + "_temperature.csv")
-            
+    
+    raw_inputs["wind_speed"]  = np.maximum(0, np.loadtxt("raw_inputs/weather_files/" 
+                                              + location + "_windspeed.csv"))
+    
+#    raw_inputs["ventilation_loss"] = np.loadtxt("raw_inputs/vent/vent_"+ventilation_behaviour+".csv")
+    
+    # Ventilation loss
+
+#    if ventilation_behaviour == "low":
+#        raw_inputs["ventilation_loss"] = np.maximum(0, np.loadtxt("raw_inputs/vent/vent_low.csv"))
+#        
+#    elif ventilation_behaviour == "medium":
+#        raw_inputs["ventilation_loss"] = np.maximum(0, np.loadtxt("raw_inputs/vent/vent_medium.csv"))
+#        
+#    elif ventilation_behaviour == "high":
+#        raw_inputs["ventilation_loss"] = np.maximum(0, np.loadtxt("raw_inputs/vent/vent_high.csv"))
+        
     # Electricity, dhw and internal gains:
     
-    if building_type == "SFH" or building_type == "TH":    
+    if building_type == "ClusterA":    
         
-        options["MFH"] = False
+        options["ClusterB"] = False
         
         raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/sfh/dhw_" 
                                       + str(household_size) + "_" + dhw_demand + ".csv") / 1000)       
@@ -57,47 +73,88 @@ def building_optimization(building_type, building_age, location,
                                       + str(household_size) + "_" + electricity_demand + ".csv") / 1000)
         
         
-    if building_type == "MFH" or building_type == "AB":
+    if building_type == "ClusterB" and apartment_quantity <= 12:
         
-        options["MFH"] = True
+        options["ClusterB"] = True
         
         if electricity_demand == "low":
-            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_" 
-                      + building_type + "_" + str(apartment_quantity) + ".csv") / 1000 * 0.75)
+            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_mfh_" 
+                       + str(apartment_quantity) + ".csv") / 1000 * 0.75)
             
-            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_" 
-                      + building_type + "_" + str(apartment_quantity) + ".csv") / 1000 * 0.75)
+            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_mfh_" 
+                      + str(apartment_quantity) + ".csv") / 1000 * 0.75)
             
         elif electricity_demand == "medium":
-            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_" 
-                          	+ building_type + "_" + str(apartment_quantity) + ".csv") / 1000)
+            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_mfh_" 
+                          	+ str(apartment_quantity) + ".csv") / 1000)
             
-            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_" 
-                          + building_type + "_" + str(apartment_quantity) + ".csv") / 1000)
+            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_mfh_" 
+                          + str(apartment_quantity) + ".csv") / 1000)
             
         elif electricity_demand == "high":
-            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_" 
-                      + building_type + "_" + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_mfh_" 
+                      + str(apartment_quantity) + ".csv") / 1000 * 1.25)
             
-            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_" 
-                      + building_type + "_" + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_mfh_" 
+                      + str(apartment_quantity) + ".csv") / 1000 * 1.25)
             
         if dhw_demand == "low":            
-            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_" 
-                                          + building_type + "_" + str(apartment_quantity) + ".csv") / 1000 * 0.75)
+            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_mfh_" 
+                                          + str(apartment_quantity) + ".csv") / 1000 * 0.75)
         
         elif dhw_demand == "medium":            
-            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_" 
-                                          + building_type + "_" + str(apartment_quantity) + ".csv") / 1000)
+            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_mfh_" 
+                                          + str(apartment_quantity) + ".csv") / 1000)
         
         elif dhw_demand == "high":            
-            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_" 
-                                          + building_type + "_" + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_mfh_" 
+                                          + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+            
+            
+    elif building_type == "ClusterB" and apartment_quantity > 12:
+        
+        options["ClusterB"] = True
+        
+        if electricity_demand == "low":
+            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_ab_" 
+                       + str(apartment_quantity) + ".csv") / 1000 * 0.75)
+            
+            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_ab_" 
+                      + str(apartment_quantity) + ".csv") / 1000 * 0.75)
+            
+        elif electricity_demand == "medium":
+            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_ab_" 
+                          	+ str(apartment_quantity) + ".csv") / 1000)
+            
+            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_ab_" 
+                          + str(apartment_quantity) + ".csv") / 1000)
+            
+        elif electricity_demand == "high":
+            raw_inputs["electricity"] = np.maximum(0, np.loadtxt("raw_inputs/mfh/electricity_ab_" 
+                      + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+            
+            raw_inputs["int_gains"]   = np.maximum(0, np.loadtxt("raw_inputs/mfh/internal_gains_ab_" 
+                      + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+            
+        if dhw_demand == "low":            
+            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_ab_" 
+                                          + str(apartment_quantity) + ".csv") / 1000 * 0.75)
+        
+        elif dhw_demand == "medium":            
+            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_ab_" 
+                                          + str(apartment_quantity) + ".csv") / 1000)
+        
+        elif dhw_demand == "high":            
+            raw_inputs["dhw"]         = np.maximum(0, np.loadtxt("raw_inputs/mfh/dhw_ab_" 
+                                          + str(apartment_quantity) + ".csv") / 1000 * 1.25)
+        
             
             
     
     
     #%% Clustering Inputdata
+    
+    # add raw_inputs["ventilation_loss"]
     
     number_clusters = 8
     inputs_clustering = np.array([raw_inputs["electricity"], 
@@ -108,14 +165,16 @@ def building_optimization(building_type, building_age, location,
                                   raw_inputs["solar_west"],
                                   raw_inputs["solar_east"],
                                   raw_inputs["solar_north"],
-                                  raw_inputs["int_gains"]
-                                  ])
+                                  raw_inputs["wind_speed"],
+                                  raw_inputs["int_gains"]])
+                                  
+                                
                   
     (inputs, nc, z) = clustering.cluster(inputs_clustering, 
                                          number_clusters,
                                          norm = 2,
                                          mip_gap = 0.0,
-                                         weights = [8,8,8,3,1,1,1,1,1])
+                                         weights = [8,8,8,3,1,1,1,1,1,1])
     
     # Determine time steps per day
     len_day = int(inputs_clustering.shape[1] / 365)
@@ -130,7 +189,11 @@ def building_optimization(building_type, building_age, location,
     clustered["solar_w"]       = inputs[5]
     clustered["solar_e"]       = inputs[6]
     clustered["solar_n"]       = inputs[7]
-    clustered["int_gains"]     = inputs[8]
+    clustered["wind_speed"]    = inputs[8]                                                                          
+    clustered["int_gains"]     = inputs[9]
+    
+    
+    
     clustered["weights"]       = nc
     
     clustered["temp_indoor"]   =  20
@@ -148,7 +211,7 @@ def building_optimization(building_type, building_age, location,
                             solar_irradiation   = clustered["solar_roof"],
                             days_per_cluster    = clustered["weights"])
     
-    (economics, params, devs, ep_table, shell_eco) = pik.read_economics(devs)
+    (economics, params, devs, ep_table, shell_eco, vent) = pik.read_economics(devs)
     params    = pik.compute_parameters(params, number_clusters, len_day)
     subsidies = pik.read_subsidies(economics) 
     buildings = pik.parse_building_parameters()
@@ -162,6 +225,9 @@ def building_optimization(building_type, building_age, location,
     building["dimensions"] = buildings[building_type][building_age]
     building["usable_roof"] = useable_roofarea
     building["dimensions"]["Area"] = apartment_quantity * apartment_size
+    building["quantity"] = apartment_quantity
+    building["household_size"] = household_size
+
     ref_building = ref_bui.reference_building(building["dimensions"])
     
     #%% Store clustered input parameters
@@ -183,9 +249,10 @@ def building_optimization(building_type, building_age, location,
     max_emi = 99999
     max_cost = 99999      
              
-    (costs, emission) = opti.compute(economics, devs, clustered, params, options, 
+    (costs, emission, x_vent) = opti.compute(economics, devs, clustered, params, options, 
                                      building, ref_building, shell_eco, subsidies,
-                                     ep_table, max_emi, max_cost)
+                                     ep_table, max_emi, max_cost, vent)
+                                     
     
     Outputs = reader.read_results(building_type + "_" + building_age)
 
@@ -230,7 +297,20 @@ def building_optimization(building_type, building_age, location,
         if Outputs["7_x_restruc"][i] == 1:        
             print(i)
             print(" ")
-                       
+            
+    print("Lüftungssystem:")
+    print("")
+    if x_vent == 1:
+        print("ja")
+    else:
+        print("nein")
+#    print(Q_vent_loss)  
+#    print("q_v_Inf_wirk:")
+#    print("")
+#    print(q_v_Inf_wirk)
+        
+#    print(temp_average)
+#                       
     return Outputs
     
 #%% Define Building parameters: 
@@ -238,25 +318,23 @@ def building_optimization(building_type, building_age, location,
 if __name__ == "__main__":
     
     # Building parameters: 
-    building_type = "SFH"       # SFH, TH, MFH, AB
+    building_type = "ClusterB"  # ClusterA, ClusterB
     
-    building_age  = "1969 1978" # 0 1859, 1860 1918, 1919 1948, 1949 1957, 
-                                # 1958 1968, 1969 1978, 1979 1983, 1984 1994,
-                                # 1995 2001, 2002 2009, 2010 2015, 2016 2100  
+    building_age  = "1958 1978"    # 0 1957, 1958 1978, 1979 1994
     
-    location      = "Essen"     # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
+    location      = "Mannheim"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
                                 # Bad Marienberg (Westerwald), Kassel, 
                                 # Braunlage (Harz), Chemnitz, Hof (Oberfranken), 
                                 # Fichtelberg (Erzgebirge), Mannheim, 
                                 # Mühldorf (München), Stötten (Kempten), Garmisch    
         
-    useable_roofarea  = 0.30    #Default value: 0.25
+    useable_roofarea  = 0.25    #Default value: 0.25
     
-    apartment_quantity = 1      # SFH and TH: 1 - Always
+    apartment_quantity = 10      # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
                                 # AB: 15, 20, 25, 30, 35 
                                 
-    apartment_size = 120        # SFH and TH: average 110 - 120 m² in Germany
+    apartment_size = 60        # SFH and TH: average 110 - 120 m² in Germany
                                 # MFH and AB: avergae 60 - 70 m² in Germany 
     
     household_size = 3          # SFH and TH: 1, 2, 3, 4, 5
@@ -265,6 +343,8 @@ if __name__ == "__main__":
     electricity_demand = "medium"   # low, medium, high  
     
     dhw_demand         = "medium"   # low, medium, high
+    
+    ventilation_behaviour = "medium"  # low,medium,high
     
     #%% Set options
     
@@ -283,7 +363,7 @@ if __name__ == "__main__":
                #Further parameters
                "New_Building" : False,
                "dhw_electric" : False,
-               "scenario": "s1",
+               "scenario": "free",
                "Design_heat_load" : True,
                "store_start_vals" : False,
                "load_start_vals" : False,

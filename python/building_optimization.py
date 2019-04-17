@@ -12,7 +12,7 @@ import pickle
 #%% Start:
 
 def compute(eco, devs, clustered, params, options, building, ref_building, 
-            shell_eco, sub_par, ep_table, max_emi, max_cost):
+            shell_eco, sub_par, ep_table, max_emi, max_cost, vent):
     """
     Compute the optimal building energy system consisting of pre-defined 
     devices (devs) for a given building. Furthermore the program can choose
@@ -63,6 +63,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         - temp_design : Design temperature for heating system
         - temp_indoor : indoor temperature        
         - weights : Weight factors from the clustering algorithm
+        - ventilation_loss : window profile for ventilation loss
         
     params : dict
         - c_w : heat capacity of water
@@ -121,7 +122,23 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         - Upper bound for CO2 emissions
         
     max_cost : float
-        - Upper bound for annual costs        
+        - Upper bound for annual costs
+    
+    vent : dict
+        eco     - phi_heat_recovery : Rückwärmezahl
+                - price_a           : y-Achsenabschnitt Preiskurve
+                - price_b           : Steigung Preiskurve
+                    
+        sci     - rho_a_ref         : density of air on sea level
+                - cp_air            : heat capacity air
+                - c_wnd             : coefficient to consider velocity of wind
+                - c_st              : coefficient to consider thermal draft
+                    
+        tec     - h_w_st            : wirksame Höhe des thermischen Auftriebes (Annahme)
+                - A_w_tot           : gesamte Fensteröffnungsfläche (Annahme)
+                - e_z               : Volumenstromkoeffizient (Annahme)
+
+                
     """
     
     # Extract parameters
@@ -130,7 +147,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
     days       = range(params["days"])    
         
     # Define subsets
-    heater  = ("boiler", "chp", "eh", "hp_air", "hp_geo","pellet")
+    heater  = ("boiler", "chp", "eh", "hp_air", "hp_geo", "pellet")
     storage = ("bat", "tes")
     solar   = ("pv", "stc")
     
@@ -159,7 +176,8 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         # demand costs (fuel costs) and fix costs for electricity and gas tariffs
         
         c_inv  = {dev: model.addVar(vtype="C", name="c_inv_"+dev)
-                 for dev in (list(devs.keys()) + list(building_components))}
+                 for dev in ("boiler", "bat", "chp", "eh", "GroundFloor", "hp_air", "hp_geo", "tes", 
+                             "OuterWall", "pellet", "pv", "Rooftop", "stc", "vent", "Window")}
                      
         c_om   = {dev: model.addVar(vtype="C", name="c_om_"+dev)
                  for dev in list(devs.keys())}
@@ -187,7 +205,13 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         x = {}  # Purchase (all devices)         
         for dev in devs.keys():
             x[dev] = model.addVar(vtype="B", name="x_"+dev)
-
+        
+        # ventilation system
+        
+        x_vent = model.addVar(vtype="B", name="x_vent")                 #add purchase decision variable for ventilation system
+        n_50 = model.addVar(vtype ="C", name="n_50")                    #add n_50 as variable 
+        
+        
         # Acitivation heater 
         y = {}  
         for d in days:
@@ -335,6 +359,25 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         for d in days:
             for t in time_steps:
                 Q_Ht[d,t] = model.addVar(vtype = "C", name = "HT")
+        
+        # Ventilation losses
+        
+        Q_vent_loss = {}
+        for d in days:
+            for t in time_steps:
+                Q_vent_loss[d,t] = model.addVar(vtype = "C", name = "Qvent_loss")
+        
+
+        Q_v_Inf_wirk = {}        
+        for d in days:
+            for t in time_steps:                
+                Q_v_Inf_wirk[d,t] = model.addVar(vtype ="C", name = "Q_v_Inf_wirk")
+#        
+#        q_v_arg_in = {}
+#        
+#        for d in days:
+#            for t in time_steps:
+#                q_v_arg_in[d,t] = model.addVar(vtype ="C", name = "q_v_arg_in")
         
         # Real solar gains
         Q_s = {}  
@@ -525,7 +568,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             
         # Differentiation between SFH and MFH because of different 
         # regulations in the "Marktanreizprogramm" STC 
-        if options["MFH"]:
+        if options["ClusterB"]:
             MFH = 1
         else:
             MFH = 0      
@@ -633,6 +676,10 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                        for n in ("retrofit", "adv_retr"))),
                                        name = "C_inv_restruc_"+dev)
         
+        dev = "vent"
+        model.addConstr(c_inv[dev] ==   eco["crf"]*x_vent * building["dimensions"]["Area"] * (vent["eco"]["price_a"] + 
+                                        vent["eco"]["price_b"]*building["dimensions"]["Area"]/building["quantity"]), 
+                                        name = "C_inv_restruc_"+dev)
         #%% Operation and maintenance
         
         for dev in devs.keys():
@@ -760,19 +807,83 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                 model.addConstr(Q_Ht[d,t] == clustered["temp_delta"][d,t] / 1000 * H_t)                                     
                                            
         
-        #Ventilation Losses
-        vol = 0.76 * building["dimensions"]["Area"] * building["dimensions"]["Volume"]
-        ro_cp = 0.34 #Wh/m³K
-        n = 0.7 #1/h 
+#Ventilation Losses   
+    #% dicts 
         
-        H_v = ro_cp * n * vol
-      
-        # Total heating losses
-        G_t = 3380 #Kd - Gradtagzahl
-        f_na = 0.95 #Parameter for switching off the heater in the night
-        f_ql = 0.024 * G_t * f_na
+        window_open = {}    
         
-        Q_l =  H_v * f_ql / 8760 #kWh
+        for d in days:    
+            for t in time_steps:
+
+                window_open[d,t] = np.maximum(0, (1.3404 + clustered["temp_ambient"][d,t]*0.1565+
+                                                   clustered["temp_ambient"][d,t]**2*0.0005))
+        
+#        air_flow1 = {}                          # Zwischenwert für Maximum (linke Seite)
+#        air_flow2 = {}                          # Zwischenwert für MaximuM (rechte Seite)
+        air_flow  = {}                          # Max von air_flow1 & 2
+        
+        for d in days:
+            for t in time_steps:
+#                air_flow1[d,t] = (vent["sci"]["c_wnd"]*clustered["wind_speed"][d,t]**2)**0.5       # [sqr(m/s)]???
+#                air_flow2[d,t] = (vent["sci"]["c_st"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t])**0.5
+#                
+#                if air_flow1[d,t] > air_flow2[d,t]:
+#                    air_flow[d,t] = air_flow1[d,t]
+#                    
+#                else:
+#                    air_flow[d,t] = air_flow2[d,t]
+                air_flow[d,t] = np.maximum((vent["sci"]["c_wnd"]*clustered["wind_speed"][d,t]**2)**0.5, 
+                                            (vent["sci"]["c_st"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t])**0.5)
+                    
+                    
+        rho_a_e = {}                             # Luftdichte in Abhängigkeit der Temperatur (zum Quadrat um Volumenstrom in Massenstrom zu wandeln)
+                
+        for d in days:
+            for t in time_steps:
+                rho_a_e[d,t] = ((1/(101325/(287.058*(273.15+clustered["temp_delta"][d,t]))))**2)
+    
+        if MFH == 1:
+            factor_q_v = building["quantity"]**(0.7)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2         # ohne 3600 wie in Norm (mit 3600 ist der stündliche Volumenstrom)
+            
+        else:
+            factor_q_v = (building["household_size"]/2.5)**(0.05)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2            
+        
+        Q_v_arg_in = {}
+        for d in days:                           # einströmender Luftmassenstrom
+            for t in time_steps:
+                Q_v_arg_in[d,t] = (factor_q_v*air_flow[d,t]*window_open[d,t]*
+                                  vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])
+
+    #% Infiltration nach DIN 1946-6
+        
+        model.addConstr(n_50 == 2                #n_50 in Abh. von Sanierungsszenarien und Lüftung [1/h]
+                                + x_restruc["OuterWall","standard"]*x_restruc["Window","standard"]*2.5
+                                - MFH * x_restruc["OuterWall","retrofit"] * 0.5
+                                - MFH * x_restruc["OuterWall","adv_retr"] * 0.5
+                                - MFH * x_restruc["Window","retrofit"] * 0.5
+                                - MFH * x_restruc["Window","adv_retr"] * 0.5
+                                + MFH * x_restruc["OuterWall","retrofit"] * x_restruc["Window","retrofit"] * 0.5
+                                + MFH * x_restruc["OuterWall","retrofit"] * x_restruc["Window","adv_retr"] * 0.5
+                                + MFH * x_restruc["OuterWall","adv_retr"] * x_restruc["Window","retrofit"] * 0.5
+                                + MFH * x_restruc["OuterWall","adv_retr"] * x_restruc["Window","adv_retr"] * 0.5
+                                - x_vent*MFH*0.5
+                                - x_vent*(1-MFH)*1)        
+       
+        for d in days:
+            for t in time_steps:
+                model.addConstr(Q_v_Inf_wirk[d,t] == vent["tec"]["e_z"]*rho_a_e[d,t]/3600 * 
+                                                     building["dimensions"]["Area"]*building["dimensions"]["Volume"]*
+                                                     vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])    #[kW]
+                
+                
+                
+                
+                                                # Wärmeverlust durch Lüften nach Energiebilanz
+        
+        for d in days:
+            for t in time_steps:
+                model.addConstr(Q_vent_loss[d,t] == ((1-vent["eco"]["phi_heat_recovery"]*x_vent)*Q_v_arg_in[d,t]+Q_v_Inf_wirk[d,t]))
+                                                    
         
         #Solar Gains for all windowareas as a function of the solar radiation 
         #of the respective direction:
@@ -796,11 +907,21 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                 
         # For every timestep die heating demand is calculated in considering of 
         # the transmissionen and ventilation losses as well as internal and solar gains
+        
+        temp_array = np.asarray(clustered["temp_ambient"])
+        
+        temp_average = np.mean(temp_array, axis = 1)
+        
         for d in days:
             for t in time_steps:
-                 model.addConstr(heat_mod[d,t] >= Q_Ht[d,t] + Q_l - Q_s[d,t] - clustered["int_gains"][d,t])
+                if temp_average[d] >= 18:
+                        model.addConstr(heat_mod[d,t] == 0)
+                else:  
+                
+    
+                        model.addConstr(heat_mod[d,t] >= Q_Ht[d,t] + Q_vent_loss[d,t] - Q_s[d,t] - clustered["int_gains"][d,t])
                  
-                 model.addConstr(heat_mod[d,t] <= Q_Ht[d,t] + Q_l) 
+                        model.addConstr(heat_mod[d,t] <= Q_Ht[d,t] + Q_vent_loss[d,t]) 
 
 #%% Heating systems
     
@@ -2214,6 +2335,14 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         res_Q_Ht = {}
         res_Q_Ht[d,t] = np.array([[Q_Ht[d,t].X for t in time_steps] for d in days])
         
+        res_Q_vent_loss = {}
+        res_Q_vent_loss[d,t] = np.array([[Q_vent_loss[d,t].X for t in time_steps] for d in days])
+        
+        res_Q_v_Inf_wirk = {}
+        res_Q_v_Inf_wirk[d,t] = np.array([[Q_v_Inf_wirk[d,t].X for t in time_steps] for d in days])
+        
+#        res_n_50 = n_50.X
+        
         res_Qs = {}
         res_Qs[d,t] = np.array([[Q_s[d,t].X for t in time_steps] for d in days])
 
@@ -2257,8 +2386,10 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         res_sub_kwkg_temp = sub_kwkg_temp.X
         
         # Emissions 
-#        res_emission_max = max_emi
+        #res_emission_max = max_emi
         res_emission = emission.X / 1000
+        
+        res_x_vent = x_vent.X
         
         if options["store_start_vals"]:
             with open(options["filename_start_vals"], "w") as fout:
@@ -2311,10 +2442,17 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             pickle.dump(res_lin_kwkg_2, fout, pickle.HIGHEST_PROTOCOL)         
             pickle.dump(res_lin_kwkg_1, fout, pickle.HIGHEST_PROTOCOL)    
             pickle.dump(res_b_kwkg, fout, pickle.HIGHEST_PROTOCOL)      
-            pickle.dump(res_sub_kwkg_temp, fout, pickle.HIGHEST_PROTOCOL)      
+            pickle.dump(res_sub_kwkg_temp, fout, pickle.HIGHEST_PROTOCOL)
+            
+            pickle.dump(res_Q_vent_loss, fout, pickle.HIGHEST_PROTOCOL)
+#            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(res_Q_v_Inf_wirk, fout, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(res_Q_Ht, fout, pickle.HIGHEST_PROTOCOL)
+            
+    
 
         # Return results
-        return(res_c_total, res_emission)
+        return(res_c_total, res_emission, res_x_vent)
 
     except gp.GurobiError as e:
         print("")        

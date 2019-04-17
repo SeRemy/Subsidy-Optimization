@@ -207,6 +207,7 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     par["rho_w"]      = sheet_par.cell_value(3,1)
     par["c_w"]        = sheet_par.cell_value(4,1)
 
+
     # The ep-table gives Information about the expenditure figures of different
     # combinations of heating technologies    
     ep_table = {}
@@ -230,13 +231,42 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
         ep_table["pellet"][n] = sheet_ep.cell_value(n,8)
         ep_table["stc"][n] = sheet_ep.cell_value(n,9)
         ep_table["TVL35"][n] = sheet_ep.cell_value(n,10)
+        
+    vent = read_vent()
              
-    return (eco, par, devices, ep_table, shell_eco)
+    return (eco, par, devices, ep_table, shell_eco, vent)
             
+def read_vent(filename="raw_inputs/vent.xlsx"):
+    
+    book = xlrd.open_workbook(filename)
+    
+    sheet_eco  = book.sheet_by_name("eco_params")    
+    sheet_tec  = book.sheet_by_name("tec_params")
+    sheet_sci  = book.sheet_by_name("sci_params")
+    
+    vent = {}
+    
+    vent["eco"] = {}
+    vent["eco"]["phi_heat_recovery"]    = sheet_eco.cell_value(1,1)
+    vent["eco"]["price_a"]              = sheet_eco.cell_value(1,1)
+    vent["eco"]["price_b"]              = sheet_eco.cell_value(1,1)
+    
+    vent["tec"] = {}
+    vent["tec"]["h_w_st"]               = sheet_tec.cell_value(1,1)
+    vent["tec"]["A_w_tot"]              = sheet_tec.cell_value(2,1)
+    vent["tec"]["e_z"]                  = sheet_tec.cell_value(3,1)
+    
+    vent["sci"] = {}
+    vent["sci"]["rho_a_ref"]            = sheet_sci.cell_value(1,1)
+    vent["sci"]["cp_air"]               = sheet_sci.cell_value(2,1)
+    vent["sci"]["c_wnd"]                = sheet_sci.cell_value(3,1)
+    vent["sci"]["c_st"]                 = sheet_sci.cell_value(4,1)
+    
+    return(vent)
             
 def compute_parameters(par, number_clusters, len_day):
     """
-    Add number of days, time steps per day and temporal discretization to par.
+    Add number of d ays, time steps per day and temporal discretization to par.
     
     Parameters
     ----------
@@ -1086,13 +1116,11 @@ def retrofit_scenarios():
                       "GroundFloor",
                       "Window")
                 
-    building_types = ("SFH", "_TH", "MFH", "_AB")
+    building_types = ("ClusterA", "ClusterB")
     
     scenarios = ("standard", "retrofit", "adv_retr")
     
-    timesteps = ("0 1859", "1860 1918", "1919 1948", "1949 1957",
-                 "1958 1968", "1969 1978", "1979 1983", "1984 1994", 
-                 "1995 2001", "2002 2009", "2010 2015", "2016 2100")
+    timesteps = ("0 1957", "1958 1978", "1979 1994")
         
     values = ("building_age_group",
               "construction_type")
@@ -1148,7 +1176,7 @@ def retrofit_scenarios():
                 for d in building_parts:
                     tabula_scenarios[a][b][c][d] = {}                
                     for e in building_elements[d].keys():
-                        if a == building_elements[d][e]["construction_type"][-3:] and \
+                        if a == building_elements[d][e]["construction_type"][-8:] and \
                            c == building_elements[d][e]["construction_type"][:8] and \
                            b == building_elements[d][e]["building_age_group"]:
                                for i in range (len(building_elements[d][e])-2):
@@ -1192,8 +1220,8 @@ def retrofit_scenarios():
                            round(tabula_scenarios[a][b][c][d]["thick_insu"] - \
                          tabula_scenarios[a][b]["standard"][d]["thick_insu"],2)
     
-    tabula_scenarios["TH"] = tabula_scenarios.pop("_TH")
-    tabula_scenarios["AB"] = tabula_scenarios.pop("_AB")
+#    tabula_scenarios["TH"] = tabula_scenarios.pop("_TH")
+#    tabula_scenarios["AB"] = tabula_scenarios.pop("_AB")
 
     for a in tabula_scenarios.keys():
         for b in tabula_scenarios[a].keys():
@@ -1272,4 +1300,4 @@ if __name__ == "__main__":
                         temperature_design=temperature_design,
                         solar_irradiation=solar_irradiation)
                         
-    (eco, par, devs) = read_economics(devs)
+    (eco, par, devs, vent) = read_economics(devs)
