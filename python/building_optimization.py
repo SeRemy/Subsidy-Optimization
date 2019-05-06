@@ -5,13 +5,14 @@
 """
 
 from __future__ import division
+import pandas as pd
 import gurobipy as gp
 import numpy as np
 import pickle
 
 #%% Start:
 
-def compute(eco, devs, clustered, params, options, building, ref_building, 
+def compute(eco, devs, clustered, df_vent, params, options, building, ref_building, 
             shell_eco, sub_par, ep_table, max_emi, max_cost, vent):
     """
     Compute the optimal building energy system consisting of pre-defined 
@@ -808,32 +809,54 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
                                            
         
 #Ventilation Losses   
+                        
+        temp_array = np.asarray(clustered["temp_ambient"])
+        temp_average = np.mean(temp_array, axis = 1)
+        
+        df_windows=pd.DataFrame()
+        
+        for d in days:
+            if temp_average[d] <-5:
+                    df_windows[d]=df_vent["<-5"]
+            elif temp_average[d] <0:
+                    df_windows[d]=df_vent["<0"]
+            elif temp_average[d] <3:
+                    df_windows[d]=df_vent["<3"]
+            elif temp_average[d] <6:
+                    df_windows[d]=df_vent["<6"]
+            elif temp_average[d] <9:
+                    df_windows[d]=df_vent["<9"]
+            elif temp_average[d] <12:
+                    df_windows[d]=df_vent["<12"]
+            elif temp_average[d] <15:
+                    df_windows[d]=df_vent["<15"]
+            elif temp_average[d] <18:
+                    df_windows[d]=df_vent["<18"]
+            elif temp_average[d] <21:
+                    df_windows[d]=df_vent["<21"]
+            elif temp_average[d] <24:
+                    df_windows[d]=df_vent["<24"]
+            elif temp_average[d] <27:
+                    df_windows[d]=df_vent["<27"]
+            else:
+                    df_windows[d]=df_vent[">27"]
+                
+#Window profiles regarding daily average ambient temperature
     #% dicts 
-        
-        window_open = {}    
-        
-        for d in days:    
-            for t in time_steps:
-
-                window_open[d,t] = np.maximum(0, (1.3404 + clustered["temp_ambient"][d,t]*0.1565+
-                                                   clustered["temp_ambient"][d,t]**2*0.0005))
-        
-#        air_flow1 = {}                          # Zwischenwert für Maximum (linke Seite)
-#        air_flow2 = {}                          # Zwischenwert für MaximuM (rechte Seite)
+        air_flow1 = {}                          # Zwischenwert für Maximum (linke Seite)
+        air_flow2 = {}                          # Zwischenwert für MaximuM (rechte Seite)
         air_flow  = {}                          # Max von air_flow1 & 2
         
         for d in days:
             for t in time_steps:
-#                air_flow1[d,t] = (vent["sci"]["c_wnd"]*clustered["wind_speed"][d,t]**2)**0.5       # [sqr(m/s)]???
-#                air_flow2[d,t] = (vent["sci"]["c_st"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t])**0.5
-#                
-#                if air_flow1[d,t] > air_flow2[d,t]:
-#                    air_flow[d,t] = air_flow1[d,t]
-#                    
-#                else:
-#                    air_flow[d,t] = air_flow2[d,t]
-                air_flow[d,t] = np.maximum((vent["sci"]["c_wnd"]*clustered["wind_speed"][d,t]**2)**0.5, 
-                                            (vent["sci"]["c_st"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t])**0.5)
+                air_flow1[d,t] = (vent["sci"]["c_wnd"]*clustered["wind_speed"][d,t]**2)**0.5       # [sqr(m/s)]???
+                air_flow2[d,t] = (vent["sci"]["c_st"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t])**0.5
+                
+                if air_flow1[d,t] > air_flow2[d,t]:
+                    air_flow[d,t] = air_flow1[d,t]
+                    
+                else:
+                    air_flow[d,t] = air_flow2[d,t]
                     
                     
         rho_a_e = {}                             # Luftdichte in Abhängigkeit der Temperatur (zum Quadrat um Volumenstrom in Massenstrom zu wandeln)
@@ -842,16 +865,12 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             for t in time_steps:
                 rho_a_e[d,t] = ((1/(101325/(287.058*(273.15+clustered["temp_delta"][d,t]))))**2)
     
-        if MFH == 1:
-            factor_q_v = building["quantity"]**(0.7)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2         # ohne 3600 wie in Norm (mit 3600 ist der stündliche Volumenstrom)
-            
-        else:
-            factor_q_v = (building["household_size"]/2.5)**(0.05)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2            
+        factor_q_v = building["dimensions"]["Area"]/(building["quantity"]*70)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2         # ohne 3600 wie in Norm (mit 3600 ist der stündliche Volumenstrom)
         
         Q_v_arg_in = {}
         for d in days:                           # einströmender Luftmassenstrom
             for t in time_steps:
-                Q_v_arg_in[d,t] = (factor_q_v*air_flow[d,t]*window_open[d,t]*
+                Q_v_arg_in[d,t] = (factor_q_v*air_flow[d,t]*df_windows[d][t]*
                                   vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])
 
     #% Infiltration nach DIN 1946-6
@@ -871,7 +890,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
        
         for d in days:
             for t in time_steps:
-                model.addConstr(Q_v_Inf_wirk[d,t] == vent["tec"]["e_z"]*rho_a_e[d,t]/3600 * 
+                model.addConstr(Q_v_Inf_wirk[d,t] == vent["tec"]["e_z"]*rho_a_e[d,t]/1000 * 
                                                      building["dimensions"]["Area"]*building["dimensions"]["Volume"]*
                                                      vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])    #[kW]
                 
@@ -908,13 +927,9 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         # For every timestep die heating demand is calculated in considering of 
         # the transmissionen and ventilation losses as well as internal and solar gains
         
-        temp_array = np.asarray(clustered["temp_ambient"])
-        
-        temp_average = np.mean(temp_array, axis = 1)
-        
         for d in days:
             for t in time_steps:
-                if temp_average[d] >= 18:
+                if temp_average[d] >= 15:
                         model.addConstr(heat_mod[d,t] == 0)
                 else:  
                 
@@ -2452,7 +2467,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
     
 
         # Return results
-        return(res_c_total, res_emission, res_x_vent)
+        return(res_c_total, res_emission, res_x_vent, df_windows)
 
     except gp.GurobiError as e:
         print("")        
