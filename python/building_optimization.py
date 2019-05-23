@@ -138,6 +138,8 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         tec     - h_w_st            : wirksame Höhe des thermischen Auftriebes (Annahme)
                 - A_w_tot           : gesamte Fensteröffnungsfläche (Annahme)
                 - e_z               : Volumenstromkoeffizient (Annahme)
+                
+        n_50_table
 
                 
     """
@@ -363,6 +365,12 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         
         # Ventilation losses
         
+        ventilation_concept = {}
+
+        for n in vent["n_50_table"]["n_50"].keys():
+            ventilation_concept[n] = model.addVar(vtype = "B", 
+                                              name = "ventilation_concept"+str(n))
+        
         Q_vent_loss = {}
         for d in days:
             for t in time_steps:
@@ -394,7 +402,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         
         # Deciscion if individual measure is allowed although the individual 
         # U-value is too high
-        b_ind_mea= model.addVar(vtype = "B", name = "b_ind_mea")
+#        b_ind_mea= model.addVar(vtype = "B", name = "b_ind_mea")
 
         # Variable for chosen heating concept (relevant for primary energy demand)
         heating_concept = {}
@@ -760,32 +768,32 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         for dev in building_components:    
             model.addConstr(sum(x_restruc[dev,n] for n in restruc_scenarios) == 1)
             
-        #In Accordance to EnEV 2009 the restructuring measures for the individual
-        #building parts have to fulfill the required U-Values. If the complete 
-        #building has at least KfW-100 status, the individual building parts
-        #do not have to fulfill this criteria
-        
-        for dev in building_components:
-            for n in ("retrofit", "adv_retr"):  
-            
-                u_ref = ref_building["U-values"][dev]
-                u_var = building["U-values"][n][dev]["U-Value"]
-                
-                total_shell = (building["dimensions"]["Area"] * 
-                               sum(building["dimensions"][n] 
-                               for n in building_components))
-                
-                Q_p_ref = ref_building["Q_p"]
-                H_t_ref = ref_building["H_t_spec"]
-                M = Q_p_ref * 50
-                                       
-                model.addConstr(x_restruc[dev,n] <=  u_ref / u_var + b_ind_mea)
-                
-                M = H_t_ref * 10   
-                model.addConstr(H_t / total_shell <= H_t_ref + (1 - b_ind_mea) * M) 
-            
-                M = Q_p_ref * 10          
-                model.addConstr(Q_p_DIN <= Q_p_ref + (1.0 - b_ind_mea) * M)
+#        In Accordance to EnEV 2009 the restructuring measures for the individual
+#        building parts have to fulfill the required U-Values. If the complete 
+#        building has at least KfW-100 status, the individual building parts
+#        do not have to fulfill this criteria
+#        
+#        for dev in building_components:
+#            for n in ("retrofit", "adv_retr"):  
+#            
+#                u_ref = ref_building["U-values"][dev]
+#                u_var = building["U-values"][n][dev]["U-Value"]
+#                
+#                total_shell = (building["dimensions"]["Area"] * 
+#                               sum(building["dimensions"][n] 
+#                               for n in building_components))
+#                
+#                Q_p_ref = ref_building["Q_p"]
+#                H_t_ref = ref_building["H_t_spec"]
+#                M = Q_p_ref * 50
+#                                       
+#                model.addConstr(x_restruc[dev,n] <=  u_ref / u_var + b_ind_mea)
+#                
+#                M = H_t_ref * 10   
+#                model.addConstr(H_t / total_shell <= H_t_ref + (1 - b_ind_mea) * M) 
+#            
+#                M = Q_p_ref * 10          
+#                model.addConstr(Q_p_DIN <= Q_p_ref + (1.0 - b_ind_mea) * M)
         
         #Correction factors for components that have no contact with the ambient ait
         Fx = {}
@@ -859,11 +867,11 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                     air_flow[d,t] = air_flow2[d,t]
                     
                     
-        rho_a_e = {}                             # Luftdichte in Abhängigkeit der Temperatur (zum Quadrat um Volumenstrom in Massenstrom zu wandeln)
-                
-        for d in days:
-            for t in time_steps:
-                rho_a_e[d,t] = ((1/(101325/(287.058*(273.15+clustered["temp_delta"][d,t]))))**2)
+#        rho_a_e = {}                             # Luftdichte in Abhängigkeit der Temperatur (zum Quadrat um Volumenstrom in Massenstrom zu wandeln)
+#                
+#        for d in days:
+#            for t in time_steps:
+#                rho_a_e[d,t] = 1.2 #((1/(101325/(287.058*(273.15+clustered["temp_delta"][d,t]))))**2)
     
         factor_q_v = building["dimensions"]["Area"]/(building["quantity"]*70)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2         # ohne 3600 wie in Norm (mit 3600 ist der stündliche Volumenstrom)
         
@@ -875,22 +883,49 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
 
     #% Infiltration nach DIN 1946-6
         
-        model.addConstr(n_50 == 2                #n_50 in Abh. von Sanierungsszenarien und Lüftung [1/h]
-                                + x_restruc["OuterWall","standard"]*x_restruc["Window","standard"]*2.5
-                                - MFH * x_restruc["OuterWall","retrofit"] * 0.5
-                                - MFH * x_restruc["OuterWall","adv_retr"] * 0.5
-                                - MFH * x_restruc["Window","retrofit"] * 0.5
-                                - MFH * x_restruc["Window","adv_retr"] * 0.5
-                                + MFH * x_restruc["OuterWall","retrofit"] * x_restruc["Window","retrofit"] * 0.5
-                                + MFH * x_restruc["OuterWall","retrofit"] * x_restruc["Window","adv_retr"] * 0.5
-                                + MFH * x_restruc["OuterWall","adv_retr"] * x_restruc["Window","retrofit"] * 0.5
-                                + MFH * x_restruc["OuterWall","adv_retr"] * x_restruc["Window","adv_retr"] * 0.5
-                                - x_vent*MFH*0.5
-                                - x_vent*(1-MFH)*1)        
+        model.addConstr(1 == sum(ventilation_concept[n] 
+                             for n in ventilation_concept.keys()))
+        
+        if MFH == 0:
+            
+            for n in range(18,36):
+                 model.addConstr(ventilation_concept[n] == 0)
+    
+            for n in range(18):
+                model.addConstr(ventilation_concept[n] >=   sum(vent["n_50_table"]["SFH"]["Window"][scen][n] * x_restruc["Window", scen] + 
+                                                            (1 - vent["n_50_table"]["SFH"]["Window"][scen][n]) * (1 - x_restruc["Window", scen]) 
+                                                            for scen in ("standard", "retrofit","adv_retr")) + 
+                
+                                                            sum(vent["n_50_table"]["SFH"]["Rooftop"][scen][n] * x_restruc["Rooftop", scen] + 
+                                                            (1 - vent["n_50_table"]["SFH"]["Rooftop"][scen][n]) * (1 - x_restruc["Rooftop", scen]) 
+                                                            for scen in ("standard", "retrofit","adv_retr")) + 
+                                                            
+                                                            vent["n_50_table"]["x_vent"][n] * x_vent +
+                                                            (1 - vent["n_50_table"]["x_vent"][n]) * 
+                                                            (1 - x_vent) - 6) 
+        else:
+            for n in range(18,36):
+                model.addConstr(ventilation_concept[n] >=   sum(vent["n_50_table"]["MFH"]["Window"][scen][n] * x_restruc["Window", scen] +
+                                                            (1 - vent["n_50_table"]["MFH"]["Window"][scen][n]) * (1 - x_restruc["Window", scen]) 
+                                                            for scen in ("standard", "retrofit","adv_retr")) + 
+                                                            
+                                                            sum(vent["n_50_table"]["MFH"]["Rooftop"][scen][n] * x_restruc["Rooftop", scen] +
+                                                            (1 - vent["n_50_table"]["MFH"]["Rooftop"][scen][n]) * (1 - x_restruc["Rooftop", scen]) 
+                                                            for scen in ("standard", "retrofit","adv_retr")) + 
+                                                            
+                                                            vent["n_50_table"]["x_vent"][n] * x_vent +
+                                                            (1 - vent["n_50_table"]["x_vent"][n]) * 
+                                                            (1 - x_vent) - 6)                 
+                                                            
+            for n in range(18):
+                model.addConstr(ventilation_concept[n] == 0)
+                                                     
+        model.addConstr(n_50 == sum(ventilation_concept[n] * vent["n_50_table"]["n_50"][n] for n in ventilation_concept.keys()))
+        
        
         for d in days:
             for t in time_steps:
-                model.addConstr(Q_v_Inf_wirk[d,t] == vent["tec"]["e_z"]*rho_a_e[d,t]/1000 * 
+                model.addConstr(Q_v_Inf_wirk[d,t] == vent["tec"]["e_z"]*vent["sci"]["rho_a_ref"]/1000 * n_50 *
                                                      building["dimensions"]["Area"]*building["dimensions"]["Volume"]*
                                                      vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])    #[kW]
                 
@@ -932,10 +967,8 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                 if temp_average[d] >= 15:
                         model.addConstr(heat_mod[d,t] == 0)
                 else:  
-                
-    
                         model.addConstr(heat_mod[d,t] >= Q_Ht[d,t] + Q_vent_loss[d,t] - Q_s[d,t] - clustered["int_gains"][d,t])
-                 
+
                         model.addConstr(heat_mod[d,t] <= Q_Ht[d,t] + Q_vent_loss[d,t]) 
 
 #%% Heating systems
@@ -2089,8 +2122,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                              for n in heating_concept.keys()))
         
         for n in heating_concept.keys():
-            model.addConstr(heating_concept[n] >= sum(ep_table[dev][n] * x[dev] +
-                                                 (1 - ep_table[dev][n]) * (1 - x[dev]) 
+            model.addConstr(heating_concept[n] >= sum(ep_table[dev][n] * x[dev] + (1 - ep_table[dev][n]) * (1 - x[dev]) 
                                                   for dev in ("boiler", "chp", "eh", "hp_air", 
                                                               "hp_geo","pellet","stc")) + 
                                                   ep_table["TVL35"][n] * b_TVL["35"] +
@@ -2185,8 +2217,23 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         elif options ["scenario"] == "benchmark":
             model.addConstr(x["boiler"] == 1)    
             model.addConstr(x["pv"] == 0)
+            model.addConstr(x_vent == 0)
             for i in building_components:
                 model.addConstr(x_restruc[i,"standard"] == 1)
+        
+        elif options ["scenario"] == "window_rooftop":
+#            model.addConstr(x["boiler"] == 1)    
+#            model.addConstr(x["pv"] == 0)
+            model.addConstr(x_restruc["Window","retrofit"] == 1)
+            model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
+            model.addConstr(x_restruc["GroundFloor","retrofit"] == 1)
+            model.addConstr(x_restruc["OuterWall","retrofit"] == 1)
+            
+        elif options ["scenario"] == "vent_test":
+
+            model.addConstr(x_restruc["Window","adv_retr"] == 1)
+            model.addConstr(x_restruc["Rooftop","adv_retr"] == 1)
+            model.addConstr(x_vent == 0)
         
         elif options ["scenario"] == "s1":
 #            for i in building_components:
@@ -2199,6 +2246,13 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
 #            model.addConstr(capacity["pv"] == 31.7)
 #            model.addConstr(capacity["boiler"] == 18)
 #            model.addConstr(capacity["tes"] == 0.6)
+            
+#        elif options["scenario"] == "standard":                     #to calculate heat loss without any changes of building shell or vent
+#            model.addConstr(x_restruc["Window","retrofit"] == 1)
+#            model.addConstr(x_restruc["GroundFloor","standard"] == 1)
+#            model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
+#            model.addConstr(x_restruc["OuterWall","standard"] == 1)
+#            model.addConstr(x_vent == 0)
             
         #%% Set start values and branching priority
         if options["load_start_vals"]:
@@ -2356,7 +2410,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         res_Q_v_Inf_wirk = {}
         res_Q_v_Inf_wirk[d,t] = np.array([[Q_v_Inf_wirk[d,t].X for t in time_steps] for d in days])
         
-#        res_n_50 = n_50.X
+        res_n_50 = n_50.X
         
         res_Qs = {}
         res_Qs[d,t] = np.array([[Q_s[d,t].X for t in time_steps] for d in days])
@@ -2460,14 +2514,14 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pickle.dump(res_sub_kwkg_temp, fout, pickle.HIGHEST_PROTOCOL)
             
             pickle.dump(res_Q_vent_loss, fout, pickle.HIGHEST_PROTOCOL)
-#            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_v_Inf_wirk, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_Ht, fout, pickle.HIGHEST_PROTOCOL)
             
     
 
         # Return results
-        return(res_c_total, res_emission, res_x_vent, df_windows)
+        return(res_c_total, res_emission, res_x_vent, df_windows, res_n_50)
 
     except gp.GurobiError as e:
         print("")        
