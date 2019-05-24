@@ -200,7 +200,7 @@ def building_optimization(building_type, building_age, location,
     max_emi = 99999
     max_cost = 99999      
              
-    (costs, emission, x_vent, df_windows, n_50) = opti.compute(economics, devs, clustered, df_vent, params, options, 
+    (costs, emission, x_vent, df_windows) = opti.compute(economics, devs, clustered, df_vent, params, options, 
                                      building, ref_building, shell_eco, subsidies,
                                      ep_table, max_emi, max_cost, vent)
                                      

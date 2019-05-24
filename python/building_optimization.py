@@ -2221,13 +2221,14 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             for i in building_components:
                 model.addConstr(x_restruc[i,"standard"] == 1)
         
-        elif options ["scenario"] == "window_rooftop":
+        elif options ["scenario"] == "s1":
 #            model.addConstr(x["boiler"] == 1)    
 #            model.addConstr(x["pv"] == 0)
             model.addConstr(x_restruc["Window","retrofit"] == 1)
             model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
             model.addConstr(x_restruc["GroundFloor","retrofit"] == 1)
             model.addConstr(x_restruc["OuterWall","retrofit"] == 1)
+            model.addConstr(x_vent == 0)
             
         elif options ["scenario"] == "vent_test":
 
@@ -2235,13 +2236,13 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             model.addConstr(x_restruc["Rooftop","adv_retr"] == 1)
             model.addConstr(x_vent == 0)
         
-        elif options ["scenario"] == "s1":
+#        elif options ["scenario"] == "s1":
 #            for i in building_components:
 #            model.addConstr(x_restruc["Window","retrofit"] == 1)
 #            model.addConstr(x_restruc["GroundFloor","retrofit"] == 1)
 #            model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
 #            model.addConstr(x_restruc["OuterWall","adv_retr"] == 1)
-            model.addConstr(x["bat"] == 1)
+#            model.addConstr(x["bat"] == 1)
 #            model.addConstr(x["pv"] == 1)
 #            model.addConstr(capacity["pv"] == 31.7)
 #            model.addConstr(capacity["boiler"] == 18)
@@ -2410,7 +2411,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         res_Q_v_Inf_wirk = {}
         res_Q_v_Inf_wirk[d,t] = np.array([[Q_v_Inf_wirk[d,t].X for t in time_steps] for d in days])
         
-        res_n_50 = n_50.X
+#        res_n_50 = n_50.X
         
         res_Qs = {}
         res_Qs[d,t] = np.array([[Q_s[d,t].X for t in time_steps] for d in days])
@@ -2514,14 +2515,14 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pickle.dump(res_sub_kwkg_temp, fout, pickle.HIGHEST_PROTOCOL)
             
             pickle.dump(res_Q_vent_loss, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
+#            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_v_Inf_wirk, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_Ht, fout, pickle.HIGHEST_PROTOCOL)
             
     
 
         # Return results
-        return(res_c_total, res_emission, res_x_vent, df_windows, res_n_50)
+        return(res_c_total, res_emission, res_x_vent, df_windows)
 
     except gp.GurobiError as e:
         print("")        
