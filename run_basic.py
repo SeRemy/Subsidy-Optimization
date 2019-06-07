@@ -200,13 +200,16 @@ def building_optimization(building_type, building_age, location,
     max_emi = 99999
     max_cost = 99999      
              
-    (costs, emission, x_vent, df_windows, res_n_total) = opti.compute(economics, devs, clustered, df_vent, params, options, 
-                                     building, ref_building, shell_eco, subsidies,
-                                     ep_table, max_emi, max_cost, vent)
+    (costs, emission, x_vent, df_windows, res_n_total, air_flow1, air_flow2) =  opti.compute(economics, devs, clustered, df_vent, params, options, 
+                                                                                building, ref_building, shell_eco, subsidies,
+                                                                                ep_table, max_emi, max_cost, vent)
                                  
-    
+    print(1)
+    print(air_flow1[0,0], air_flow1[5,5])
+    print(2)
+    print(air_flow2[0,0], air_flow2[5,5])
     Outputs = reader.read_results(building_type + "_" + building_age +"_" + options["scenario"])
-    
+#    
 #    #%% Ausgabe: 
 # 
 #    print(" ")
@@ -265,7 +268,7 @@ if __name__ == "__main__":
     
     
     # Building parameters: 
-    building_type = "ClusterA"  # ClusterA, ClusterB
+    building_type = "ClusterB"  # ClusterA, ClusterB
     
     building_age  = "0 1957"    # 0 1957, 1958 1978, 1979 1994
     

@@ -9,6 +9,7 @@ import pandas as pd
 import gurobipy as gp
 import numpy as np
 import pickle
+import math 
 
 #%% Start:
 
@@ -862,23 +863,13 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         
         for d in days:
             for t in time_steps:
-                air_flow1[d,t] = (vent["sci"]["c_wnd"]*clustered["wind_speed"][d,t]**2)**0.5       # [sqr(m/s)]???
-                air_flow2[d,t] = (vent["sci"]["c_st"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t])**0.5
+                air_flow1[d,t] = (1/3*vent["sci"]["C_D"]*3600*(vent["sci"]["g"]*vent["tec"]["h_w_st"]*clustered["temp_delta"][d,t]/ #*3600
+                                 (clustered["temp_ambient"][d,t]+273))**0.5)
+                air_flow2[d,t] = (0.05*(1.36*clustered["wind_speed"][d,t]*vent["sci"]["ln_H_z"])*3600) #*3600
                 
-                if air_flow1[d,t] > air_flow2[d,t]:
-                    air_flow[d,t] = air_flow1[d,t]
-                    
-                else:
-                    air_flow[d,t] = air_flow2[d,t]
-                    
-                    
-#        rho_a_e = {}                             # Luftdichte in Abhängigkeit der Temperatur (zum Quadrat um Volumenstrom in Massenstrom zu wandeln)
-#                
-#        for d in days:
-#            for t in time_steps:
-#                rho_a_e[d,t] = 1.2 #((1/(101325/(287.058*(273.15+clustered["temp_delta"][d,t]))))**2)
+                air_flow[d,t] = (air_flow1[d,t]**2 + air_flow2[d,t]**2)**0.5
     
-        factor_q_v = building["dimensions"]["Area"]/70*vent["tec"]["A_w_tot"]/2*3600   
+        factor_q_v = building["dimensions"]["Area"]/70*vent["tec"]["A_w_tot"]/2
         
         Q_v_vol = {}
         Q_v_arg_in = {}
@@ -888,9 +879,9 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                     Q_v_vol[d,t]=0
                     Q_v_arg_in[d,t]=0
                 else:
-                    Q_v_vol[d,t] = (factor_q_v*air_flow[d,t]*df_windows[d][t]*(clustered["temp_ambient"][d,t]+273.15)/(273.15+20))
-                    Q_v_arg_in[d,t] = (Q_v_vol[d,t]/vent["sci"]["rho_a_ref"]*
-                                      vent["sci"]["cp_air"]/3600*clustered["temp_delta"][d,t])
+                    Q_v_vol[d,t] = (factor_q_v*air_flow[d,t]*df_windows[d][t])
+                    Q_v_arg_in[d,t] = (Q_v_vol[d,t]*(clustered["temp_ambient"][d,t]+273.15)/(273.15+20)*
+                                      clustered["temp_delta"][d,t]*0.34/1000)
 
     #% Infiltration nach DIN 1946-6
         
@@ -944,7 +935,8 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                 else:
                     Q_v_Inf_vol[d,t] =  (vent["tec"]["e_z"] * n_50  *
                                         building["dimensions"]["Area"]*building["dimensions"]["Volume"])
-                    model.addConstr(Q_v_Inf_wirk[d,t] == Q_v_Inf_vol[d,t] / vent["sci"]["rho_a_ref"] * vent["sci"]["cp_air"]/3600*clustered["temp_delta"][d,t])    #[kW]
+                    model.addConstr(Q_v_Inf_wirk[d,t] == Q_v_Inf_vol[d,t] * 0.34 *(clustered["temp_ambient"][d,t]+273.15)/
+                                                    (273.15+20)*clustered["temp_delta"][d,t]/1000)    
                     
                     model.addConstr(n_total[d,t] == (Q_v_Inf_vol[d,t]+Q_v_vol[d,t])/(building["dimensions"]["Area"]*
                                                 building["dimensions"]["Volume"]))
@@ -2544,7 +2536,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
     
 
         # Return results
-        return(res_c_total, res_emission, res_x_vent, df_windows, res_n_total)
+        return(res_c_total, res_emission, res_x_vent, df_windows, res_n_total, air_flow1, air_flow2)
 
     except gp.GurobiError as e:
         print("")        

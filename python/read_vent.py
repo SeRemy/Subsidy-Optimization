@@ -35,6 +35,11 @@ def read_vent(filename="raw_inputs/vent.xlsx"):
     vent["sci"]["cp_air"]               = sheet_sci.cell_value(2,1)
     vent["sci"]["c_wnd"]                = sheet_sci.cell_value(3,1)
     vent["sci"]["c_st"]                 = sheet_sci.cell_value(4,1)
+    vent["sci"]["C_D"]                  = sheet_sci.cell_value(5,1)
+    vent["sci"]["g"]                    = sheet_sci.cell_value(6,1)
+    vent["sci"]["H_gz"]                 = sheet_sci.cell_value(7,1)
+    vent["sci"]["z_0"]                  = sheet_sci.cell_value(8,1)
+    vent["sci"]["ln_H_z"]               = sheet_sci.cell_value(9,1)
     
     vent["n_50_table"] = {}
     vent["n_50_table"]["counter"] ={}

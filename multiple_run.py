@@ -13,6 +13,42 @@ def multiple_run():
     
     wb = Workbook()
     
+    ws_1 = wb.add_sheet("Übersicht", cell_overwrite_ok=True)
+    
+    ws_1.write(0,0,   "Szenario")
+    ws_1.write(1,0,   "Gebäudetyp")
+    ws_1.write(2,0,   "Baujahr")
+    ws_1.write(3,0,   "Anteil Lüftung- an Gesamtwärmeverlusten")
+    ws_1.write(4,0,   "Anteil Infiltrations- an Lüftungswärmeverlusten")
+    ws_1.write(5,0,   "jährlich gemittelte Luftwechselrate")
+    
+    ws_1.write(7,0,   "Szenario")
+    ws_1.write(8,0,   "Gebäudetyp")
+    ws_1.write(9,0,   "Baujahr")
+    ws_1.write(10,0,  "Anteil Lüftung- an Gesamtwärmeverlusten")
+    ws_1.write(11,0,  "Anteil Infiltrations- an Lüftungswärmeverlusten")
+    ws_1.write(12,0,  "jährlich gemittelte Luftwechselrate")
+    
+    ws_1.write_merge(0,0,1,6, "benchmark")
+    ws_1.write_merge(7,7,1,6, "retrofit")
+    ws_1.write_merge(1,1,1,3, "SFH")
+    ws_1.write_merge(1,1,4,6, "MFH")
+    ws_1.write_merge(8,8,1,3, "SFH")
+    ws_1.write_merge(8,8,4,6, "MFH")
+    
+    ws_1.write(2,1,   "0 1957")
+    ws_1.write(2,2,   "1958 1978")
+    ws_1.write(2,3,   "1979 1994")
+    ws_1.write(2,4,   "0 1957")
+    ws_1.write(2,5,   "1958 1978")
+    ws_1.write(2,6,   "1979 1994")
+    ws_1.write(9,1,   "0 1957")
+    ws_1.write(9,2,   "1958 1978")
+    ws_1.write(9,3,   "1979 1994")
+    ws_1.write(9,4,   "0 1957")
+    ws_1.write(9,5,   "1958 1978")
+    ws_1.write(9,6,   "1979 1994")
+    
     location            = "Garmisch"
     useable_roofarea    = 0.25
     electricity_demand  = "medium"
@@ -154,8 +190,48 @@ def multiple_run():
                 ws.write(38,27, yr_av_n_total)
                 ws.write(18,28, portion_vent)
                 ws.write(28,28, portion_inf)
-
-    wb.save("results/vent_try.xls")
+                
+                if building_type == "ClusterA":
+                    if options_scenario == "benchmark":
+                        if building_age == "0 1957":
+                            ws_1.write(3,1, portion_vent) 
+                            ws_1.write_merge(4,4,1,3, portion_inf)
+                            ws_1.write_merge(5,5,1,3, yr_av_n_total)
+                        elif building_age == "1958 1978":
+                            ws_1.write(3,2, portion_vent) 
+                        elif building_age == "1979 1994":
+                            ws_1.write(3,3, portion_vent) 
+                    elif options_scenario == "s1":
+                        if building_age == "0 1957":
+                            ws_1.write(10,1, portion_vent) 
+                            ws_1.write_merge(11,11,1,3, portion_inf)
+                            ws_1.write_merge(12,12,1,3, yr_av_n_total)
+                        elif building_age == "1958 1978":
+                            ws_1.write(10,2, portion_vent) 
+                        elif building_age == "1979 1994":
+                            ws_1.write(10,3, portion_vent)
+                elif building_type == "ClusterB":
+                    if options_scenario == "benchmark":
+                        if building_age == "0 1957":
+                            ws_1.write(3,4, portion_vent) 
+                            ws_1.write_merge(4,4,4,6, portion_inf)
+                            ws_1.write_merge(5,5,4,6, yr_av_n_total)
+                        elif building_age == "1958 1978":
+                            ws_1.write(3,5, portion_vent) 
+                        elif building_age == "1979 1994":
+                            ws_1.write(3,6, portion_vent) 
+                    elif options_scenario == "s1":
+                        if building_age == "0 1957":
+                            ws_1.write(10,4, portion_vent) 
+                            ws_1.write_merge(11,11,4,6, portion_inf)
+                            ws_1.write_merge(12,12,4,6, yr_av_n_total)
+                        elif building_age == "1958 1978":
+                            ws_1.write(10,5, portion_vent) 
+                        elif building_age == "1979 1994":
+                            ws_1.write(10,6, portion_vent)
+                
+                
+    wb.save("results/vent_try_uebersicht.xls")
                 
 multiple_run()
                 
