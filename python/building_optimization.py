@@ -381,6 +381,11 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         for d in days:
             for t in time_steps:                
                 Q_v_Inf_wirk[d,t] = model.addVar(vtype ="C", name = "Q_v_Inf_wirk")
+                
+        n_total = {}
+        for d in days:
+            for t in time_steps:
+                n_total[d,t] = model.addVar(vtype ="C", name = "n_total")
 #        
 #        q_v_arg_in = {}
 #        
@@ -873,13 +878,19 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
 #            for t in time_steps:
 #                rho_a_e[d,t] = 1.2 #((1/(101325/(287.058*(273.15+clustered["temp_delta"][d,t]))))**2)
     
-        factor_q_v = building["dimensions"]["Area"]/(building["quantity"]*70)*vent["sci"]["rho_a_ref"]*vent["tec"]["A_w_tot"]/2         # ohne 3600 wie in Norm (mit 3600 ist der stündliche Volumenstrom)
+        factor_q_v = building["dimensions"]["Area"]/70*vent["tec"]["A_w_tot"]/2*3600   
         
+        Q_v_vol = {}
         Q_v_arg_in = {}
         for d in days:                           # einströmender Luftmassenstrom
             for t in time_steps:
-                Q_v_arg_in[d,t] = (factor_q_v*air_flow[d,t]*df_windows[d][t]*
-                                  vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])
+                if temp_average[d] >= 15:
+                    Q_v_vol[d,t]=0
+                    Q_v_arg_in[d,t]=0
+                else:
+                    Q_v_vol[d,t] = (factor_q_v*air_flow[d,t]*df_windows[d][t]*(clustered["temp_ambient"][d,t]+273.15)/(273.15+20))
+                    Q_v_arg_in[d,t] = (Q_v_vol[d,t]/vent["sci"]["rho_a_ref"]*
+                                      vent["sci"]["cp_air"]/3600*clustered["temp_delta"][d,t])
 
     #% Infiltration nach DIN 1946-6
         
@@ -889,7 +900,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         if MFH == 0:
             
             for n in range(18,36):
-                 model.addConstr(ventilation_concept[n] == 0)
+                model.addConstr(ventilation_concept[n] == 0)
     
             for n in range(18):
                 model.addConstr(ventilation_concept[n] >=   sum(vent["n_50_table"]["SFH"]["Window"][scen][n] * x_restruc["Window", scen] + 
@@ -922,13 +933,21 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                                                      
         model.addConstr(n_50 == sum(ventilation_concept[n] * vent["n_50_table"]["n_50"][n] for n in ventilation_concept.keys()))
         
-       
+        
+        Q_v_Inf_vol ={}
+        
         for d in days:
             for t in time_steps:
-                model.addConstr(Q_v_Inf_wirk[d,t] == vent["tec"]["e_z"]*vent["sci"]["rho_a_ref"]/1000 * n_50 *
-                                                     building["dimensions"]["Area"]*building["dimensions"]["Volume"]*
-                                                     vent["sci"]["cp_air"]*clustered["temp_delta"][d,t])    #[kW]
-                
+                if temp_average[d] >= 15:
+                    model.addConstr(Q_v_Inf_wirk[d,t] == 0)
+                    model.addConstr(n_total[d,t] == 0)
+                else:
+                    Q_v_Inf_vol[d,t] =  (vent["tec"]["e_z"] * n_50  *
+                                        building["dimensions"]["Area"]*building["dimensions"]["Volume"])
+                    model.addConstr(Q_v_Inf_wirk[d,t] == Q_v_Inf_vol[d,t] / vent["sci"]["rho_a_ref"] * vent["sci"]["cp_air"]/3600*clustered["temp_delta"][d,t])    #[kW]
+                    
+                    model.addConstr(n_total[d,t] == (Q_v_Inf_vol[d,t]+Q_v_vol[d,t])/(building["dimensions"]["Area"]*
+                                                building["dimensions"]["Volume"]))
                 
                 
                 
@@ -2411,6 +2430,9 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         res_Q_v_Inf_wirk = {}
         res_Q_v_Inf_wirk[d,t] = np.array([[Q_v_Inf_wirk[d,t].X for t in time_steps] for d in days])
         
+        res_n_total = {}
+        res_n_total[d,t] = np.array([[n_total[d,t].X for t in time_steps] for d in days])
+        
 #        res_n_50 = n_50.X
         
         res_Qs = {}
@@ -2515,14 +2537,14 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pickle.dump(res_sub_kwkg_temp, fout, pickle.HIGHEST_PROTOCOL)
             
             pickle.dump(res_Q_vent_loss, fout, pickle.HIGHEST_PROTOCOL)
-#            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(res_n_total, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_v_Inf_wirk, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_Ht, fout, pickle.HIGHEST_PROTOCOL)
             
     
 
         # Return results
-        return(res_c_total, res_emission, res_x_vent, df_windows)
+        return(res_c_total, res_emission, res_x_vent, df_windows, res_n_total)
 
     except gp.GurobiError as e:
         print("")        

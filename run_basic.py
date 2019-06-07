@@ -200,13 +200,13 @@ def building_optimization(building_type, building_age, location,
     max_emi = 99999
     max_cost = 99999      
              
-    (costs, emission, x_vent, df_windows) = opti.compute(economics, devs, clustered, df_vent, params, options, 
+    (costs, emission, x_vent, df_windows, res_n_total) = opti.compute(economics, devs, clustered, df_vent, params, options, 
                                      building, ref_building, shell_eco, subsidies,
                                      ep_table, max_emi, max_cost, vent)
-                                     
+                                 
     
     Outputs = reader.read_results(building_type + "_" + building_age +"_" + options["scenario"])
-
+    
 #    #%% Ausgabe: 
 # 
 #    print(" ")
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     # Building parameters: 
     building_type = "ClusterA"  # ClusterA, ClusterB
     
-    building_age  = "1979 1994"    # 0 1957, 1958 1978, 1979 1994
+    building_age  = "0 1957"    # 0 1957, 1958 1978, 1979 1994
     
     location      = "Garmisch"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
                                 # Bad Marienberg (Westerwald), Kassel, 
@@ -277,11 +277,11 @@ if __name__ == "__main__":
         
     useable_roofarea  = 0.25    #Default value: 0.25
     
-    apartment_quantity = 1      # SFH and TH: 1 - Always
+    apartment_quantity = 10      # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
                                 # AB: 15, 20, 25, 30, 35 
                                 
-    apartment_size = 110        # SFH and TH: average 110 - 120 m² in Germany
+    apartment_size = 70        # SFH and TH: average 110 - 120 m² in Germany
                                 # MFH and AB: avergae 60 - 70 m² in Germany 
     
     household_size = 3          # SFH and TH: 1, 2, 3, 4, 5
@@ -310,13 +310,13 @@ if __name__ == "__main__":
                #Further parameters
                "New_Building" : False,
                "dhw_electric" : False,
-               "scenario": "vent_test",
+               "scenario": "benchmark",
                "Design_heat_load" : True,
                "store_start_vals" : False,
                "load_start_vals" : False,
                #File-names
                "filename_results" : "results/" + building_type + "_" + \
-                                                   building_age + "_" + "vent_test" + ".pkl",                 
+                                                   building_age + "_" + "benchmark" + ".pkl",                 
                "filename_start_vals" :"start_values/" + building_type + "_" + \
                                                       building_age + "_start.csv"}
         

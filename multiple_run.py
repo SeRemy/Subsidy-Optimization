@@ -7,31 +7,29 @@ Created on Wed May 22 12:27:55 2019
 
 import run_basic as run
 import numpy as np
-import pandas as pd
-#import xlrd
 from xlwt import Workbook
 
 def multiple_run():
     
     wb = Workbook()
     
-    location      = "Garmisch"
-    useable_roofarea  = 0.25
-    electricity_demand = "medium"
-    dhw_demand         = "medium"
+    location            = "Garmisch"
+    useable_roofarea    = 0.25
+    electricity_demand  = "medium"
+    dhw_demand          = "medium"
     
     for building_type in ["ClusterA", "ClusterB"]:
         for building_age in ["0 1957", "1958 1978", "1979 1994"]:
             for options_scenario in ["benchmark", "s1"]:
                 
                 if building_type == "ClusterA":
-                    apartment_quantity = 1
-                    apartment_size = 110
-                    household_size = 3  
+                    apartment_quantity  = 1
+                    apartment_size      = 110
+                    household_size      = 3  
                 else:
-                    apartment_quantity = 10
-                    apartment_size = 70
-                    household_size = 1
+                    apartment_quantity  = 10
+                    apartment_size      = 70
+                    household_size      = 1
                     
                 options = {#Optimization of costs (True) or emissions (False)        
                            "opt_costs" : True,
@@ -62,10 +60,7 @@ def multiple_run():
                                           household_size, electricity_demand, 
                                           dhw_demand, useable_roofarea, 
                                           apartment_quantity, apartment_size, options)
-                
-                
-#                print(Outputs["res_heat_mod"][(7, 23)][1,1])
-                
+                                
                 if building_age == "0 1957":
                     ws_age = "1957"
                 elif building_age == "1958 1978":
@@ -75,10 +70,21 @@ def multiple_run():
                 
                 ws = wb.add_sheet(building_type + "_" + ws_age + "_" + options_scenario, cell_overwrite_ok=True)
                 
-                ws.write(0,0, "heat_mod")
-                ws.write(10,0, "vent_loss")
-                ws.write(20,0, "vent_inf")
-                ws.write(0,29, "Input_weights")
+                ws.write(0,0,   "Q_Ht")
+                ws.write(10,0,  "vent_loss")
+                ws.write(20,0,  "vent_inf")
+                ws.write(30,0,  "n_total")
+                ws.write(0,29,  "Input_weights")
+                ws.write(0,30,  "Input_temp")
+                ws.write(7,27,  "yearly average")
+                ws.write(17,27, "yearly average")
+                ws.write(27,27, "yearly average")
+                ws.write(37,27, "yearly average")
+                ws.write(17,28, "portion of vent from total heat loss")
+                ws.write(27,28, "portion of inf from vent heat loss")
+                
+                temp_array      = np.asarray(Outputs["inputs_clustered"]["temp_ambient"])
+                temp_average    = np.mean(temp_array, axis = 1)
                        
                 for n in range(8):
                     for m in range(24):
@@ -86,29 +92,69 @@ def multiple_run():
                         ws.write(n+1,0,n)
                         ws.write(n+11,0,n)
                         ws.write(n+21,0,n)
+                        ws.write(n+31,0,n)
                         
                         weights_inputs = Outputs["inputs_clustered"]["weights"][n].astype(np.float64)
                         ws.write(n+1,29,label=weights_inputs)
+                        temp_inputs    = temp_average[n]
+                        ws.write(n+1,30,label=temp_inputs)
                         
-                        ws.write(0,m+1,m)
+                        ws.write(0, m+1,m)
                         ws.write(10,m+1,m)
                         ws.write(20,m+1,m)
+                        ws.write(30,m+1,m)
                         
-                        heat_mod    = Outputs["res_heat_mod"][(7, 23)][n,m]
+                        Q_Ht        = Outputs["res_Q_Ht"][(7, 23)][n,m]
                         vent_loss   = Outputs["res_Q_vent_loss"][(7, 23)][n,m]
                         vent_inf    = Outputs["res_Q_v_Inf_wirk"][(7, 23)][n,m]
+                        n_total     = Outputs["res_n_total"][(7, 23)][n,m]
 
-#                        write_heat_mod = heat_mod[n,m]#.astype(np.float64) #hier gibt er mir ein key error(0,0)
-                        ws.write(n+1,m+1,heat_mod)
-                        
-#                        write_vent_loss = vent_loss[n,m]#.astype(np.float64)
+                        ws.write(n+1, m+1,Q_Ht)
                         ws.write(n+11,m+1,vent_loss)
+                        ws.write(n+21,m+1,vent_inf)                        
+                        ws.write(n+31,m+1,n_total)
                         
-#                        write_vent_inf = vent_inf[n,m]#.astype(np.float64)
-                        ws.write(n+21,m+1,vent_inf)
+                    av_Q_Ht         = sum(Outputs["res_Q_Ht"][(7, 23)][n, i] for i in range(24))
+                    av_vent_loss    = sum(Outputs["res_Q_vent_loss"][(7, 23)][n, i] for i in range(24))
+                    av_vent_inf     = sum(Outputs["res_Q_v_Inf_wirk"][(7, 23)][n, i] for i in range(24))
+                    av_n_total      = sum(Outputs["res_n_total"][(7, 23)][n, i] for i in range(24))
                     
+                    ws.write(n+1,  25, av_Q_Ht)
+                    ws.write(n+11, 25, av_vent_loss)
+                    ws.write(n+21, 25, av_vent_inf)
+                    ws.write(n+31, 25, av_n_total)
                     
-                    
+                    ws.write(n+1,  26, av_Q_Ht*Outputs["inputs_clustered"]["weights"][n])
+                    ws.write(n+11, 26, av_vent_loss*Outputs["inputs_clustered"]["weights"][n])
+                    ws.write(n+21, 26, av_vent_inf*Outputs["inputs_clustered"]["weights"][n])
+                    ws.write(n+31, 26, av_n_total*Outputs["inputs_clustered"]["weights"][n])
+                
+                yr_av_Q_Ht_count      = 0
+                yr_av_vent_loss_count = 0
+                yr_av_vent_inf_count  = 0
+                yr_av_n_total_count   = 0
+                
+                for d in range(8):
+                    for t in range(24):
+                        yr_av_Q_Ht_count      += Outputs["res_Q_Ht"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
+                        yr_av_vent_loss_count += Outputs["res_Q_vent_loss"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
+                        yr_av_vent_inf_count  += Outputs["res_Q_v_Inf_wirk"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
+                        yr_av_n_total_count   += Outputs["res_n_total"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
+                        
+                yr_av_Q_Ht      = yr_av_Q_Ht_count/8760
+                yr_av_vent_loss = yr_av_vent_loss_count/8760
+                yr_av_vent_inf  = yr_av_vent_inf_count/8760
+                yr_av_n_total   = yr_av_n_total_count/8760
+                portion_vent    = yr_av_vent_loss/(yr_av_vent_loss+yr_av_Q_Ht)
+                portion_inf     = yr_av_vent_inf/yr_av_vent_loss
+                
+                ws.write(8, 27, yr_av_Q_Ht)
+                ws.write(18,27, yr_av_vent_loss)
+                ws.write(28,27, yr_av_vent_inf)
+                ws.write(38,27, yr_av_n_total)
+                ws.write(18,28, portion_vent)
+                ws.write(28,28, portion_inf)
+
     wb.save("results/vent_try.xls")
                 
 multiple_run()

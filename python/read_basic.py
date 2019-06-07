@@ -66,7 +66,7 @@ def read_results(name):
         results["res_sub_kwkg_temp"] = pickle.load(fin)
         
         results["res_Q_vent_loss"] = pickle.load(fin)
-#        results["res_n_50"] = pickle.load(fin)
+        results["res_n_total"] = pickle.load(fin)
         results["res_Q_v_Inf_wirk"] = pickle.load(fin)
         results["res_Q_Ht"] = pickle.load(fin)
         
