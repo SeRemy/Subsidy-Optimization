@@ -231,7 +231,7 @@ def multiple_run():
                             ws_1.write(10,6, portion_vent)
                 
                 
-    wb.save("results/vent_try_uebersicht.xls")
+    wb.save("results/vent_uebersicht.xls")
                 
 multiple_run()
                 
