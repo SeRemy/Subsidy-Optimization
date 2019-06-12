@@ -167,6 +167,8 @@ def building_optimization(building_type, building_age, location,
     scenarios = pik.retrofit_scenarios()
     
     (vent, df_vent) = read_vent.read_vent()
+    
+    vent["n_50_table"] = vent["n_50_table"][building_age]
 #    return vent
     
 #    
@@ -204,10 +206,6 @@ def building_optimization(building_type, building_age, location,
                                                                                 building, ref_building, shell_eco, subsidies,
                                                                                 ep_table, max_emi, max_cost, vent)
                                  
-    print(1)
-    print(air_flow1[0,0], air_flow1[5,5])
-    print(2)
-    print(air_flow2[0,0], air_flow2[5,5])
     Outputs = reader.read_results(building_type + "_" + building_age +"_" + options["scenario"])
 #    
 #    #%% Ausgabe: 

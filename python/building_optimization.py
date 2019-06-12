@@ -9,7 +9,6 @@ import pandas as pd
 import gurobipy as gp
 import numpy as np
 import pickle
-import math 
 
 #%% Start:
 
@@ -2233,12 +2232,17 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                 model.addConstr(x_restruc[i,"standard"] == 1)
         
         elif options ["scenario"] == "s1":
-#            model.addConstr(x["boiler"] == 1)    
-#            model.addConstr(x["pv"] == 0)
             model.addConstr(x_restruc["Window","retrofit"] == 1)
             model.addConstr(x_restruc["Rooftop","retrofit"] == 1)
             model.addConstr(x_restruc["GroundFloor","retrofit"] == 1)
             model.addConstr(x_restruc["OuterWall","retrofit"] == 1)
+            model.addConstr(x_vent == 0)
+            
+        elif options ["scenario"] == "s2":
+            model.addConstr(x_restruc["Window","adv_retr"] == 1)
+            model.addConstr(x_restruc["Rooftop","adv_retr"] == 1)
+            model.addConstr(x_restruc["GroundFloor","adv_retr"] == 1)
+            model.addConstr(x_restruc["OuterWall","adv_retr"] == 1)
             model.addConstr(x_vent == 0)
             
         elif options ["scenario"] == "vent_test":

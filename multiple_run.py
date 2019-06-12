@@ -15,39 +15,30 @@ def multiple_run():
     
     ws_1 = wb.add_sheet("Übersicht", cell_overwrite_ok=True)
     
-    ws_1.write(0,0,   "Szenario")
-    ws_1.write(1,0,   "Gebäudetyp")
-    ws_1.write(2,0,   "Baujahr")
-    ws_1.write(3,0,   "Anteil Lüftung- an Gesamtwärmeverlusten")
-    ws_1.write(4,0,   "Anteil Infiltrations- an Lüftungswärmeverlusten")
-    ws_1.write(5,0,   "jährlich gemittelte Luftwechselrate")
+    for i in [0,9,18]:
+        
+        ws_1.write(0+i,0,   "Szenario")
+        ws_1.write(1+i,0,   "Gebäudetyp")
+        ws_1.write(2+i,0,   "Baujahr")
+        ws_1.write(3+i,0,   "Anteil Lüftung- an Gesamtwärmeverlusten")
+        ws_1.write(4+i,0,   "Anteil Infiltrations- an Lüftungswärmeverlusten")
+        ws_1.write(5+i,0,   "jährlich gemittelte Luftwechselrate")
+        ws_1.write(6+i,0,   "flächenspezifische Gesamtwärmeverluste")
+        ws_1.write(7+i,0,   "flächenspezifische Lüstungswärmeverluste")
+        
+        ws_1.write_merge(1+i,1+i,1,3, "SFH")
+        ws_1.write_merge(1+i,1+i,4,6, "MFH")
+        
+        ws_1.write(2+i,1,   "0 1957")
+        ws_1.write(2+i,2,   "1958 1978")
+        ws_1.write(2+i,3,   "1979 1994")
+        ws_1.write(2+i,4,   "0 1957")
+        ws_1.write(2+i,5,   "1958 1978")
+        ws_1.write(2+i,6,   "1979 1994")
     
-    ws_1.write(7,0,   "Szenario")
-    ws_1.write(8,0,   "Gebäudetyp")
-    ws_1.write(9,0,   "Baujahr")
-    ws_1.write(10,0,  "Anteil Lüftung- an Gesamtwärmeverlusten")
-    ws_1.write(11,0,  "Anteil Infiltrations- an Lüftungswärmeverlusten")
-    ws_1.write(12,0,  "jährlich gemittelte Luftwechselrate")
-    
-    ws_1.write_merge(0,0,1,6, "benchmark")
-    ws_1.write_merge(7,7,1,6, "retrofit")
-    ws_1.write_merge(1,1,1,3, "SFH")
-    ws_1.write_merge(1,1,4,6, "MFH")
-    ws_1.write_merge(8,8,1,3, "SFH")
-    ws_1.write_merge(8,8,4,6, "MFH")
-    
-    ws_1.write(2,1,   "0 1957")
-    ws_1.write(2,2,   "1958 1978")
-    ws_1.write(2,3,   "1979 1994")
-    ws_1.write(2,4,   "0 1957")
-    ws_1.write(2,5,   "1958 1978")
-    ws_1.write(2,6,   "1979 1994")
-    ws_1.write(9,1,   "0 1957")
-    ws_1.write(9,2,   "1958 1978")
-    ws_1.write(9,3,   "1979 1994")
-    ws_1.write(9,4,   "0 1957")
-    ws_1.write(9,5,   "1958 1978")
-    ws_1.write(9,6,   "1979 1994")
+    ws_1.write_merge(0,0,1,6,   "benchmark")
+    ws_1.write_merge(9,9,1,6,   "retrofit")
+    ws_1.write_merge(18,18,1,6, "advanced retrofit")
     
     location            = "Garmisch"
     useable_roofarea    = 0.25
@@ -56,7 +47,7 @@ def multiple_run():
     
     for building_type in ["ClusterA", "ClusterB"]:
         for building_age in ["0 1957", "1958 1978", "1979 1994"]:
-            for options_scenario in ["benchmark", "s1"]:
+            for options_scenario in ["benchmark", "s1", "s2"]:
                 
                 if building_type == "ClusterA":
                     apartment_quantity  = 1
@@ -177,12 +168,14 @@ def multiple_run():
                         yr_av_vent_inf_count  += Outputs["res_Q_v_Inf_wirk"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                         yr_av_n_total_count   += Outputs["res_n_total"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                         
-                yr_av_Q_Ht      = yr_av_Q_Ht_count/8760
-                yr_av_vent_loss = yr_av_vent_loss_count/8760
-                yr_av_vent_inf  = yr_av_vent_inf_count/8760
-                yr_av_n_total   = yr_av_n_total_count/8760
-                portion_vent    = yr_av_vent_loss/(yr_av_vent_loss+yr_av_Q_Ht)
-                portion_inf     = yr_av_vent_inf/yr_av_vent_loss
+                yr_av_Q_Ht          = yr_av_Q_Ht_count/8760
+                yr_av_vent_loss     = yr_av_vent_loss_count/8760
+                yr_av_vent_inf      = yr_av_vent_inf_count/8760
+                yr_av_n_total       = yr_av_n_total_count/8760
+                portion_vent        = yr_av_vent_loss/(yr_av_vent_loss+yr_av_Q_Ht)
+                portion_inf         = yr_av_vent_inf/yr_av_vent_loss
+                area_spec_heat_loss = (yr_av_Q_Ht_count + yr_av_vent_loss_count)/(apartment_quantity*apartment_size)/1000
+                area_spec_vent_loss = yr_av_vent_loss_count/(apartment_quantity*apartment_size)/1000
                 
                 ws.write(8, 27, yr_av_Q_Ht)
                 ws.write(18,27, yr_av_vent_loss)
@@ -195,43 +188,121 @@ def multiple_run():
                     if options_scenario == "benchmark":
                         if building_age == "0 1957":
                             ws_1.write(3,1, portion_vent) 
-                            ws_1.write_merge(4,4,1,3, portion_inf)
-                            ws_1.write_merge(5,5,1,3, yr_av_n_total)
+                            ws_1.write(4,1, portion_inf)
+                            ws_1.write(5,1, yr_av_n_total)
+                            ws_1.write(6,1, area_spec_heat_loss)
+                            ws_1.write(7,1, area_spec_vent_loss)
                         elif building_age == "1958 1978":
-                            ws_1.write(3,2, portion_vent) 
+                            ws_1.write(3,2, portion_vent)
+                            ws_1.write(4,2, portion_inf)
+                            ws_1.write(5,2, yr_av_n_total)
+                            ws_1.write(6,2, area_spec_heat_loss)
+                            ws_1.write(7,2, area_spec_vent_loss)
                         elif building_age == "1979 1994":
                             ws_1.write(3,3, portion_vent) 
+                            ws_1.write(4,3, portion_inf)
+                            ws_1.write(5,3, yr_av_n_total)
+                            ws_1.write(6,3, area_spec_heat_loss)
+                            ws_1.write(7,3, area_spec_vent_loss)
                     elif options_scenario == "s1":
                         if building_age == "0 1957":
-                            ws_1.write(10,1, portion_vent) 
-                            ws_1.write_merge(11,11,1,3, portion_inf)
-                            ws_1.write_merge(12,12,1,3, yr_av_n_total)
+                            ws_1.write(12,1, portion_vent) 
+                            ws_1.write(13,1, portion_inf)
+                            ws_1.write(14,1, yr_av_n_total)
+                            ws_1.write(15,1, area_spec_heat_loss)
+                            ws_1.write(16,1, area_spec_vent_loss)
                         elif building_age == "1958 1978":
-                            ws_1.write(10,2, portion_vent) 
+                            ws_1.write(12,2, portion_vent) 
+                            ws_1.write(13,2, portion_inf)
+                            ws_1.write(14,2, yr_av_n_total)
+                            ws_1.write(15,2, area_spec_heat_loss)
+                            ws_1.write(16,2, area_spec_vent_loss)
                         elif building_age == "1979 1994":
-                            ws_1.write(10,3, portion_vent)
+                            ws_1.write(12,3, portion_vent) 
+                            ws_1.write(13,3, portion_inf)
+                            ws_1.write(14,3, yr_av_n_total)
+                            ws_1.write(15,3, area_spec_heat_loss)
+                            ws_1.write(16,3, area_spec_vent_loss)
+                    elif options_scenario == "s2":
+                        if building_age == "0 1957":
+                            ws_1.write(21,1, portion_vent) 
+                            ws_1.write(22,1, portion_inf)
+                            ws_1.write(23,1, yr_av_n_total)
+                            ws_1.write(24,1, area_spec_heat_loss)
+                            ws_1.write(25,1, area_spec_vent_loss)
+                        elif building_age == "1958 1978":
+                            ws_1.write(21,2, portion_vent) 
+                            ws_1.write(22,2, portion_inf)
+                            ws_1.write(23,2, yr_av_n_total)
+                            ws_1.write(24,2, area_spec_heat_loss)
+                            ws_1.write(25,2, area_spec_vent_loss)
+                        elif building_age == "1979 1994":
+                            ws_1.write(21,3, portion_vent) 
+                            ws_1.write(22,3, portion_inf)
+                            ws_1.write(23,3, yr_av_n_total)
+                            ws_1.write(24,3, area_spec_heat_loss)
+                            ws_1.write(25,3, area_spec_vent_loss)
                 elif building_type == "ClusterB":
                     if options_scenario == "benchmark":
                         if building_age == "0 1957":
                             ws_1.write(3,4, portion_vent) 
-                            ws_1.write_merge(4,4,4,6, portion_inf)
-                            ws_1.write_merge(5,5,4,6, yr_av_n_total)
+                            ws_1.write(4,4, portion_inf)
+                            ws_1.write(5,4, yr_av_n_total)
+                            ws_1.write(6,4, area_spec_heat_loss)
+                            ws_1.write(7,4, area_spec_vent_loss)
                         elif building_age == "1958 1978":
                             ws_1.write(3,5, portion_vent) 
+                            ws_1.write(4,5, portion_inf)
+                            ws_1.write(5,5, yr_av_n_total)
+                            ws_1.write(6,5, area_spec_heat_loss)
+                            ws_1.write(7,5, area_spec_vent_loss)
                         elif building_age == "1979 1994":
-                            ws_1.write(3,6, portion_vent) 
+                            ws_1.write(3,6, portion_vent)
+                            ws_1.write(4,6, portion_inf)
+                            ws_1.write(5,6, yr_av_n_total)
+                            ws_1.write(6,6, area_spec_heat_loss)
+                            ws_1.write(7,6, area_spec_vent_loss)
                     elif options_scenario == "s1":
                         if building_age == "0 1957":
-                            ws_1.write(10,4, portion_vent) 
-                            ws_1.write_merge(11,11,4,6, portion_inf)
-                            ws_1.write_merge(12,12,4,6, yr_av_n_total)
+                            ws_1.write(12,4, portion_vent) 
+                            ws_1.write(13,4, portion_inf)
+                            ws_1.write(14,4, yr_av_n_total)
+                            ws_1.write(15,4, area_spec_heat_loss)
+                            ws_1.write(16,4, area_spec_vent_loss)
                         elif building_age == "1958 1978":
-                            ws_1.write(10,5, portion_vent) 
+                            ws_1.write(12,5, portion_vent) 
+                            ws_1.write(13,5, portion_inf)
+                            ws_1.write(14,5, yr_av_n_total)
+                            ws_1.write(15,5, area_spec_heat_loss)
+                            ws_1.write(16,5, area_spec_vent_loss)
                         elif building_age == "1979 1994":
-                            ws_1.write(10,6, portion_vent)
+                            ws_1.write(12,6, portion_vent) 
+                            ws_1.write(13,6, portion_inf)
+                            ws_1.write(14,6, yr_av_n_total)
+                            ws_1.write(15,6, area_spec_heat_loss)
+                            ws_1.write(16,6, area_spec_vent_loss)
+                    elif options_scenario == "s2":
+                        if building_age == "0 1957":
+                            ws_1.write(21,4, portion_vent) 
+                            ws_1.write(22,4, portion_inf)
+                            ws_1.write(23,4, yr_av_n_total)
+                            ws_1.write(24,4, area_spec_heat_loss)
+                            ws_1.write(25,4, area_spec_vent_loss)
+                        elif building_age == "1958 1978":
+                            ws_1.write(21,5, portion_vent) 
+                            ws_1.write(22,5, portion_inf)
+                            ws_1.write(23,5, yr_av_n_total)
+                            ws_1.write(24,5, area_spec_heat_loss)
+                            ws_1.write(25,5, area_spec_vent_loss)
+                        elif building_age == "1979 1994":
+                            ws_1.write(21,6, portion_vent) 
+                            ws_1.write(22,6, portion_inf)
+                            ws_1.write(23,6, yr_av_n_total)
+                            ws_1.write(24,6, area_spec_heat_loss)
+                            ws_1.write(25,6, area_spec_vent_loss)
                 
                 
-    wb.save("results/vent_uebersicht.xls")
+    wb.save("results/vent_changedNuebersicht.xls")
                 
 multiple_run()
                 
