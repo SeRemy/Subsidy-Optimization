@@ -116,9 +116,7 @@ def building_optimization(building_type, building_age, location,
                                   raw_inputs["solar_east"],
                                   raw_inputs["solar_north"],
                                   raw_inputs["wind_speed"],
-                                  raw_inputs["int_gains"]])
-                                #raw_inputs["ventilation_loss"]
-                                
+                                  raw_inputs["int_gains"]])                                
                   
     (inputs, nc, z) = clustering.cluster(inputs_clustering, 
                                          number_clusters,
@@ -141,7 +139,6 @@ def building_optimization(building_type, building_age, location,
     clustered["solar_n"]       = inputs[7]
     clustered["wind_speed"]    = inputs[8]                                                                          
     clustered["int_gains"]     = inputs[9]
-#    clustered["ventilation_loss"]   = inputs[10]
     
     clustered["weights"]       = nc
     
@@ -169,9 +166,7 @@ def building_optimization(building_type, building_age, location,
     (vent, df_vent) = read_vent.read_vent()
     
     vent["n_50_table"] = vent["n_50_table"][building_age]
-#    return vent
     
-#    
     #%% Chose data for the chosen building and calculate reference building
     
     building = {}
@@ -266,9 +261,9 @@ if __name__ == "__main__":
     
     
     # Building parameters: 
-    building_type = "ClusterB"  # ClusterA, ClusterB
+    building_type = "ClusterA"  # ClusterA, ClusterB
     
-    building_age  = "0 1957"    # 0 1957, 1958 1978, 1979 1994
+    building_age  = "1958 1978"    # 0 1957, 1958 1978, 1979 1994
     
     location      = "Garmisch"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
                                 # Bad Marienberg (Westerwald), Kassel, 
@@ -278,11 +273,11 @@ if __name__ == "__main__":
         
     useable_roofarea  = 0.25    #Default value: 0.25
     
-    apartment_quantity = 10      # SFH and TH: 1 - Always
+    apartment_quantity = 1      # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
                                 # AB: 15, 20, 25, 30, 35 
                                 
-    apartment_size = 70        # SFH and TH: average 110 - 120 m² in Germany
+    apartment_size = 110        # SFH and TH: average 110 - 120 m² in Germany
                                 # MFH and AB: avergae 60 - 70 m² in Germany 
     
     household_size = 3          # SFH and TH: 1, 2, 3, 4, 5
@@ -291,8 +286,6 @@ if __name__ == "__main__":
     electricity_demand = "medium"   # low, medium, high  
     
     dhw_demand         = "medium"   # low, medium, high
-    
-#    ventilation_behaviour = "medium"  # low,medium,high
     
     #%% Set options
     

@@ -168,10 +168,10 @@ def multiple_run():
                         yr_av_vent_inf_count  += Outputs["res_Q_v_Inf_wirk"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                         yr_av_n_total_count   += Outputs["res_n_total"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                         
-                yr_av_Q_Ht          = yr_av_Q_Ht_count/8760
-                yr_av_vent_loss     = yr_av_vent_loss_count/8760
-                yr_av_vent_inf      = yr_av_vent_inf_count/8760
-                yr_av_n_total       = yr_av_n_total_count/8760
+                yr_av_Q_Ht          = yr_av_Q_Ht_count/1000
+                yr_av_vent_loss     = yr_av_vent_loss_count/1000
+                yr_av_vent_inf      = yr_av_vent_inf_count/1000
+                yr_av_n_total       = yr_av_n_total_count/1000
                 portion_vent        = yr_av_vent_loss/(yr_av_vent_loss+yr_av_Q_Ht)
                 portion_inf         = yr_av_vent_inf/yr_av_vent_loss
                 area_spec_heat_loss = (yr_av_Q_Ht_count + yr_av_vent_loss_count)/(apartment_quantity*apartment_size)/1000
