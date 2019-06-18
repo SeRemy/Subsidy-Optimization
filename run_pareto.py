@@ -218,7 +218,8 @@ options["filename_start_vals"] = filename_start + "9.csv"
                                                                                            ep_table, min_emi + 0.01, max_cost, vent)
 
 #%% Run multiple simulations
-nr_sim = 15
+nr_sim = 25
+
 options["opt_costs"] = True
 options["load_start_vals"] = False
 prev_emi = max_emi

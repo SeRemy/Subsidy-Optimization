@@ -2225,11 +2225,54 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pass
         
         elif options ["scenario"] == "benchmark":
-            model.addConstr(x["boiler"] == 1)    
+            model.addConstr(x["boiler"] == 1)
+            model.addConstr(x["chp"] == 0)
+            model.addConstr(x["hp_geo"] == 0)
+            model.addConstr(x["hp_air"] == 0)
+            model.addConstr(x["eh"] == 0)
+            model.addConstr(x["pellet"] == 0)
+            model.addConstr(x["bat"] == 0)
+            model.addConstr(x["stc"] == 0)
             model.addConstr(x["pv"] == 0)
             model.addConstr(x_vent == 0)
             for i in building_components:
                 model.addConstr(x_restruc[i,"standard"] == 1)
+                
+        elif options ["scenario"] == "all_hp_geo":
+            model.addConstr(x["boiler"] == 0)
+            model.addConstr(x["chp"] == 0)
+            model.addConstr(x["hp_geo"] == 1)
+            model.addConstr(x["hp_air"] == 0)
+            model.addConstr(x["eh"] == 0)
+            model.addConstr(x["pellet"] == 0)
+        
+        elif options ["scenario"] == "all_hp_air":
+            model.addConstr(x["boiler"] == 0)
+            model.addConstr(x["chp"] == 0)
+            model.addConstr(x["hp_geo"] == 0)
+            model.addConstr(x["hp_air"] == 1)
+            model.addConstr(x["eh"] == 0)
+            model.addConstr(x["pellet"] == 0)
+            
+                
+        elif options ["scenario"] == "all_chp":
+            model.addConstr(x["boiler"] == 0)
+            model.addConstr(x["chp"] == 1)
+            model.addConstr(x["hp_geo"] == 0)
+            model.addConstr(x["hp_air"] == 0)
+            model.addConstr(x["eh"] == 0)
+            model.addConstr(x["pellet"] == 0)
+            model.addConstr(x["bat"] == 0)
+            model.addConstr(x["stc"] == 0)
+            model.addConstr(x["pv"] == 0)
+            
+        elif options ["scenario"] == "all_chp_pv":
+            model.addConstr(x["boiler"] == 0)
+            model.addConstr(x["chp"] == 1)
+            model.addConstr(x["hp_geo"] == 0)
+            model.addConstr(x["hp_air"] == 0)
+            model.addConstr(x["eh"] == 0)
+            model.addConstr(x["pellet"] == 0)
         
         elif options ["scenario"] == "s1":
             model.addConstr(x_restruc["Window","retrofit"] == 1)
