@@ -14,9 +14,9 @@ from xlwt import Workbook
 
 def overview_results():
     
-    scenarios           = ["benchmark", "free"]#, "all_hp_geo", "all_hp_air", "all_chp", "all_chp_pv"]
+    scenarios           = ["benchmark", "free", "all_hp_geo"]#, "all_hp_air", "all_chp", "all_chp_pv"]
     opt_cost            = [0, 1]
-    opt_location        = ["Garmisch", "Hamburg"]#, "Essen"]
+    opt_location        = ["Mannheim", "Hamburg", "Muehldorf"]
     useable_roofarea    = 0.25
     electricity_demand  = "medium"
     dhw_demand          = "medium"
@@ -175,7 +175,7 @@ def overview_results():
                     name_sheet.write_merge(16+loc*26,16+loc*26,2+2*i+cost*15,3+2*i+cost*15, "Sanierungsmaßnahme")
                     
                 for building_type in ["ClusterA", "ClusterB"]:
-                    for building_age in ["0 1957", "1958 1978"]:#, "1979 1994"]:
+                    for building_age in ["0 1957", "1958 1978", "1979 1994"]:
                         
                         if building_type == "ClusterA":
                             apartment_quantity  = 1
@@ -386,7 +386,7 @@ def overview_results():
                         
                         
                         
-        name_wb.save("results/" + key + ".xls")
+        name_wb.save("results/ergebnisse_" + key + ".xls")
 
             
 overview_results()
