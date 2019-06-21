@@ -370,6 +370,13 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         for n in vent["n_50_table"]["n_50"].keys():
             ventilation_concept[n] = model.addVar(vtype = "B", 
                                               name = "ventilation_concept"+str(n))
+            
+        x_vent_concept = {}
+
+        for n in vent["x_vent_table"]["x_vent"].keys():
+            x_vent_concept[n] = model.addVar(vtype = "B", 
+                                              name = "x_vent_concept"+str(n))
+            
         
         Q_vent_loss = {}
         for d in days:
@@ -922,6 +929,21 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                 model.addConstr(ventilation_concept[n] == 0)
                                                      
         model.addConstr(n_50 == sum(ventilation_concept[n] * vent["n_50_table"]["n_50"][n] for n in ventilation_concept.keys()))
+        
+        for n in range(9):
+            model.addConstr(x_vent_concept[n]          >=   sum(vent["x_vent_table"]["Window"][scen][n] * x_restruc["Window", scen] +
+                                                            (1 - vent["x_vent_table"]["Window"][scen][n]) * (1 - x_restruc["Window", scen])
+                                                            for scen in ("standard", "retrofit","adv_retr")) +
+                                                            
+                                                            sum(vent["x_vent_table"]["Rooftop"][scen][n] * x_restruc["Rooftop", scen] +
+                                                            (1 - vent["x_vent_table"]["Rooftop"][scen][n]) * (1 - x_restruc["Rooftop", scen])
+                                                            for scen in ("standard", "retrofit","adv_retr"))
+                                                            
+                                                            - 5)
+                                                            
+        model.addConstr(1 == sum(x_vent_concept[n] for n in x_vent_concept.keys()))
+                                                                
+        model.addConstr(x_vent == sum(x_vent_concept[n] * vent["x_vent_table"]["x_vent"][n] for n in x_vent_concept.keys()))
         
         
         Q_v_Inf_vol ={}
@@ -2224,6 +2246,9 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         if options["scenario"] == "free":
             pass
         
+        elif options["scenario"]  == "free_o_vent":
+            model.addConstr(x_vent == 0)
+        
         elif options ["scenario"] == "benchmark":
             model.addConstr(x["boiler"] == 1)
             model.addConstr(x["chp"] == 0)
@@ -2561,6 +2586,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pickle.dump(res_heat_mod, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_b_sub_restruc, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_x_restruc, fout, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(res_x_vent, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Ht, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Qs, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Qp_DIN, fout, pickle.HIGHEST_PROTOCOL)

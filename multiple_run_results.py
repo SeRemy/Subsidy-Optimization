@@ -14,7 +14,7 @@ from xlwt import Workbook
 
 def overview_results():
     
-    scenarios           = ["benchmark", "free", "all_hp_geo"]#, "all_hp_air", "all_chp", "all_chp_pv"]
+    scenarios           = ["benchmark", "free", "free_o_vent", "all_hp_geo", "all_hp_air", "all_chp", "all_chp_pv"]
     opt_cost            = [0, 1]
     opt_location        = ["Mannheim", "Hamburg", "Muehldorf"]
     useable_roofarea    = 0.25
@@ -43,7 +43,7 @@ def overview_results():
                     bi_cost     = True
             
                 name_sheet.write_merge(0+loc*26,0+loc*26,0+cost*15,1+cost*15,               "Optimierung")
-                ws_vent.write(0+loc*1,0+cost*8,                                             "Optimierung")
+                ws_vent.write(0+loc*11,0+cost*8,                                            "Optimierung")
                 ws_cost.write_merge(0+loc*41,0+loc*41,0+cost*9,1+cost*9,                    "Optimierung")
                 
                 name_sheet.write_merge(1+loc*26,1+loc*26,0+cost*15,1+cost*15,               "Standort")
@@ -111,6 +111,7 @@ def overview_results():
                 name_sheet.write(13+loc*26,1+cost*15,                                       "Solarthermie")
                 name_sheet.write(14+loc*26,1+cost*15,                                       "Therm ES")
                 name_sheet.write(15+loc*26,1+cost*15,                                       "Elektroheizstab")
+                name_sheet.write(16+loc*26,1+cost*15,                                       "Lüftungsgerät")
                 
                 name_sheet.write_merge(17+loc*26,20+loc*26,0+cost*15,0+cost*15,             "Sanierungs-maßnahme")
                 name_sheet.write(17+loc*26,1+cost*15,                                       "Boden")
@@ -124,9 +125,9 @@ def overview_results():
                 
                 ws_vent.write(5+loc*11,0+cost*8,                                            "Anteil Lüftung- an Gesamtwärmeverlusten")
                 ws_vent.write(6+loc*11,0+cost*8,                                            "Anteil Infiltrations- an Lüftungswärmeverlusten")
-                ws_vent.write(7+loc*11,0+cost*8,                                            "Jährlich gemittelte Lüftwechselrate")
-                ws_vent.write(8+loc*11,0+cost*8,                                            "Flächenspezifische Gesamtwärmeverluste")
-                ws_vent.write(9+loc*11,0+cost*8,                                            "Flächenspezifische Lüftungswärmeverluste")
+                ws_vent.write(7+loc*11,0+cost*8,                                            "Jährlich gemittelte Lüftwechselrate [h^(-1)]")
+                ws_vent.write(8+loc*11,0+cost*8,                                            "Flächenspezifische Gesamtwärmeverluste [W/m²]")
+                ws_vent.write(9+loc*11,0+cost*8,                                            "Flächenspezifische Lüftungswärmeverluste [W/m²]")
                 
                 ws_cost.write_merge(5+loc*41,19+loc*41,0+cost*9,0+cost*9,                   "Investitions-kosten")
                 ws_cost.write_merge(21+loc*41,22+loc*41,0+cost*9,0+cost*9,                  "Fixkosten")
@@ -172,7 +173,8 @@ def overview_results():
                 for i in range(6):
                     name_sheet.write(5+loc*26,2+2*i+cost*15,                                "Auswahl")
                     name_sheet.write(5+loc*26,3+2*i+cost*15,                                "Leistung")
-                    name_sheet.write_merge(16+loc*26,16+loc*26,2+2*i+cost*15,3+2*i+cost*15, "Sanierungsmaßnahme")
+                    
+                name_sheet.write_merge(16+loc*26,16+loc*26,2+cost*15,13+cost*15,            "Sanierungsmaßnahme")
                     
                 for building_type in ["ClusterA", "ClusterB"]:
                     for building_age in ["0 1957", "1958 1978", "1979 1994"]:
@@ -293,6 +295,10 @@ def overview_results():
                         else:
                             name_sheet.write(13+loc*26,2+cost*15+b_age,                                     "nein")
                             name_sheet.write(13+loc*26,3+cost*15+b_age,                                     0)
+                        if Outputs["x_vent"] == 1:
+                            name_sheet.write(16+loc*26,2+cost*15+b_age,                                     "ja")
+                        else:
+                            name_sheet.write(16+loc*26,2+cost*15+b_age,                                     "nein")
                         if Outputs["7_x_restruc"][('GroundFloor', 'adv_retr')] == 1:
                             name_sheet.write_merge(17+loc*26,17+loc*26,2+cost*15+b_age,3+cost*15+b_age,     "advanced retrofit")
                         elif Outputs["7_x_restruc"][('GroundFloor', 'retrofit')] == 1:
@@ -328,7 +334,8 @@ def overview_results():
                         for d in range(8):
                             for t in range(24):
                                 yr_av_Q_Ht_count      += Outputs["res_Q_Ht"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
-                                yr_av_vent_loss_count += Outputs["res_Q_vent_loss"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
+                                yr_av_vent_loss_count += (Outputs["res_Q_vent_loss"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]/
+                                                          (1-Outputs["res_x_vent"])*0.6) #0.6 as Rückwärmezahl                                                               
                                 yr_av_vent_inf_count  += Outputs["res_Q_v_Inf_wirk"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                                 yr_av_n_total_count   += Outputs["res_n_total"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                                 
@@ -338,8 +345,8 @@ def overview_results():
                         yr_av_n_total       = yr_av_n_total_count/8760
                         portion_vent        = yr_av_vent_loss/(yr_av_vent_loss+yr_av_Q_Ht)
                         portion_inf         = yr_av_vent_inf/yr_av_vent_loss
-                        area_spec_heat_loss = (yr_av_Q_Ht_count + yr_av_vent_loss_count)/(apartment_quantity*apartment_size)/1000
-                        area_spec_vent_loss = yr_av_vent_loss_count/(apartment_quantity*apartment_size)/1000
+                        area_spec_heat_loss = (yr_av_Q_Ht_count + yr_av_vent_loss_count)/(apartment_quantity*apartment_size)
+                        area_spec_vent_loss = yr_av_vent_loss_count/(apartment_quantity*apartment_size)
                         
                         ws_vent.write(5+loc*11,1+cost*8+b_age_vent,                                            portion_vent)
                         ws_vent.write(6+loc*11,1+cost*8+b_age_vent,                                            portion_inf)

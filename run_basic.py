@@ -164,7 +164,7 @@ def building_optimization(building_type, building_age, location,
     scenarios = pik.retrofit_scenarios()
     
     (vent, df_vent) = read_vent.read_vent()
-    
+ 
     vent["n_50_table"] = vent["n_50_table"][building_age]
     
     #%% Chose data for the chosen building and calculate reference building
@@ -304,7 +304,7 @@ if __name__ == "__main__":
                #Further parameters
                "New_Building" : False,
                "dhw_electric" : False,
-               "scenario": "benchmark",
+               "scenario": "free",
                "Design_heat_load" : True,
                "store_start_vals" : False,
                "load_start_vals" : False,
