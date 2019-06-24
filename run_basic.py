@@ -265,7 +265,7 @@ if __name__ == "__main__":
     
     building_age  = "1958 1978"    # 0 1957, 1958 1978, 1979 1994
     
-    location      = "Garmisch"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
+    location      = "Hamburg"   # Bremerhaven, Rostock, Hamburg, Potsdam, Essen, 
                                 # Bad Marienberg (Westerwald), Kassel, 
                                 # Braunlage (Harz), Chemnitz, Hof (Oberfranken), 
                                 # Fichtelberg (Erzgebirge), Mannheim, 
@@ -304,7 +304,7 @@ if __name__ == "__main__":
                #Further parameters
                "New_Building" : False,
                "dhw_electric" : False,
-               "scenario": "free",
+               "scenario": "benchmark",
                "Design_heat_load" : True,
                "store_start_vals" : False,
                "load_start_vals" : False,

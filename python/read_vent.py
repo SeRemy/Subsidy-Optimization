@@ -17,6 +17,7 @@ def read_vent(filename="raw_inputs/vent.xlsx"):
     sheet_tec  = book.sheet_by_name("tec_params")
     sheet_sci  = book.sheet_by_name("sci_params")
     sheet_n_50_table_1957 = book.sheet_by_name("n_50_table_1957")
+    sheet_x_vent_table = book.sheet_by_name("x_vent_table")
 #    sheet_n_50_table_1978 = book.sheet_by_name("n_50_table_1978")
 #    sheet_n_50_table_1994 = book.sheet_by_name("n_50_table_1994")
     
@@ -85,6 +86,26 @@ def read_vent(filename="raw_inputs/vent.xlsx"):
             vent["n_50_table"][l]["n_50"][n] = sheet_name.cell_value(n+3,1)
             
             vent["n_50_table"][l]["x_vent"][n] = sheet_name.cell_value(n+3,14)
+            
+    vent["x_vent_table"]={}
+    vent["x_vent_table"]["x_vent"]={}
+    
+    for comp in ["Window", "Rooftop"]:
+        vent["x_vent_table"][comp]={}
+        for scen in ["standard", "retrofit", "adv_retr"]:
+            vent["x_vent_table"][comp][scen]={}
+            
+    for n in range(0,sheet_x_vent_table.nrows-2):
+        vent["x_vent_table"]["Window"]["standard"][n]   = sheet_x_vent_table.cell_value(n+2,2)
+        vent["x_vent_table"]["Window"]["retrofit"][n]   = sheet_x_vent_table.cell_value(n+2,3)
+        vent["x_vent_table"]["Window"]["adv_retr"][n]   = sheet_x_vent_table.cell_value(n+2,4)
+        vent["x_vent_table"]["Rooftop"]["standard"][n]  = sheet_x_vent_table.cell_value(n+2,5)
+        vent["x_vent_table"]["Rooftop"]["retrofit"][n]  = sheet_x_vent_table.cell_value(n+2,6)
+        vent["x_vent_table"]["Rooftop"]["adv_retr"][n]  = sheet_x_vent_table.cell_value(n+2,7)
+        
+        vent["x_vent_table"]["x_vent"][n]               = sheet_x_vent_table.cell_value(n+2,1)
+        
+            
     
     df_vent=pd.read_csv("raw_inputs/vent/vent_temp_sorted.csv", sep=";", header=0, engine = "python")
     df_vent.columns=["hour", "<-5", "<0", "<3", "<6", "<9", "<12", "<15", "<18", "<21", "<24", "<27", ">27"]

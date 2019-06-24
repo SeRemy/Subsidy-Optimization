@@ -13,6 +13,7 @@ import python.parse_inputs as pik
 import python.building_optimization as opti
 import python.reference_building as ref_bui
 import python.read_vent as read_vent
+import pick_read as reader
 
 #%% Define Parameters
 
@@ -20,7 +21,7 @@ building_type = "ClusterA"       # ClusterA, ClusterB
 
 building_age  = "0 1957" # 0 1957, 1958 1978, 1979 1994
 
-location      = "Garmisch"# Bremerhaven, Rostock, Hamburg, Potsdam, Essen, Bad Marienberg, Kassel, Braunlage, 
+location      = "Essen"# Bremerhaven, Rostock, Hamburg, Potsdam, Essen, Bad Marienberg, Kassel, Braunlage, 
                           # Chemnitz, Hof, Fichtelberg, Mannheim, Mühldorf, Stötten, Garmisch    
 
 #Household parameters: 
@@ -218,7 +219,7 @@ options["filename_start_vals"] = filename_start + "9.csv"
                                                                                            ep_table, min_emi + 0.01, max_cost, vent)
 
 #%% Run multiple simulations
-nr_sim = 25
+nr_sim = 1
 
 options["opt_costs"] = True
 options["load_start_vals"] = False
@@ -229,8 +230,8 @@ cost = {}
 emi[0] = max_emi
 cost[0] = min_cost
 
-emi[9] = min_emi
-cost[9] = max_cost
+emi[nr_sim+1] = min_emi
+cost[nr_sim+1] = max_cost
 
 for i in range(1, nr_sim+1):
     
@@ -243,6 +244,8 @@ for i in range(1, nr_sim+1):
                                                                                            ep_table, limit_emi, cost_max, vent)
     
     prev_emi = emi[i]
+
+reader.write_results(emi, cost)
 
 emi_list = list(emi.values())
 cost_list = list(cost.values())

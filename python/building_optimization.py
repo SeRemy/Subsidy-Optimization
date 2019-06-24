@@ -414,7 +414,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         
         # Deciscion if individual measure is allowed although the individual 
         # U-value is too high
-#        b_ind_mea= model.addVar(vtype = "B", name = "b_ind_mea")
+        b_ind_mea= model.addVar(vtype = "B", name = "b_ind_mea")
 
         # Variable for chosen heating concept (relevant for primary energy demand)
         heating_concept = {}
@@ -785,27 +785,27 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
 #        building has at least KfW-100 status, the individual building parts
 #        do not have to fulfill this criteria
 #        
-#        for dev in building_components:
-#            for n in ("retrofit", "adv_retr"):  
-#            
-#                u_ref = ref_building["U-values"][dev]
-#                u_var = building["U-values"][n][dev]["U-Value"]
-#                
-#                total_shell = (building["dimensions"]["Area"] * 
-#                               sum(building["dimensions"][n] 
-#                               for n in building_components))
-#                
-#                Q_p_ref = ref_building["Q_p"]
-#                H_t_ref = ref_building["H_t_spec"]
-#                M = Q_p_ref * 50
-#                                       
-#                model.addConstr(x_restruc[dev,n] <=  u_ref / u_var + b_ind_mea)
-#                
-#                M = H_t_ref * 10   
-#                model.addConstr(H_t / total_shell <= H_t_ref + (1 - b_ind_mea) * M) 
-#            
-#                M = Q_p_ref * 10          
-#                model.addConstr(Q_p_DIN <= Q_p_ref + (1.0 - b_ind_mea) * M)
+        for dev in building_components:
+            for n in ("retrofit", "adv_retr"):  
+            
+                u_ref = ref_building["U-values"][dev]
+                u_var = building["U-values"][n][dev]["U-Value"]
+                
+                total_shell = (building["dimensions"]["Area"] * 
+                               sum(building["dimensions"][n] 
+                               for n in building_components))
+                
+                Q_p_ref = ref_building["Q_p"]
+                H_t_ref = ref_building["H_t_spec"]
+                M = Q_p_ref * 50
+                                       
+                model.addConstr(x_restruc[dev,n] <=  u_ref / u_var + b_ind_mea)
+                
+                M = H_t_ref * 10   
+                model.addConstr(H_t / total_shell <= H_t_ref + (1 - b_ind_mea) * M) 
+            
+                M = Q_p_ref * 10          
+                model.addConstr(Q_p_DIN <= Q_p_ref + (1.0 - b_ind_mea) * M)
         
         #Correction factors for components that have no contact with the ambient ait
         Fx = {}
@@ -943,7 +943,7 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
                                                             
         model.addConstr(1 == sum(x_vent_concept[n] for n in x_vent_concept.keys()))
                                                                 
-        model.addConstr(x_vent == sum(x_vent_concept[n] * vent["x_vent_table"]["x_vent"][n] for n in x_vent_concept.keys()))
+        model.addConstr(x_vent <= sum(x_vent_concept[n] * vent["x_vent_table"]["x_vent"][n] for n in x_vent_concept.keys()))
         
         
         Q_v_Inf_vol ={}
@@ -981,7 +981,8 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             for t in time_steps:
                 model.addConstr(Q_s[d,t] == F_solar * sum(x_restruc["Window",n] * 
                                             building["U-values"][n]["Window"]["G-Value"] 
-                                            for n in restruc_scenarios)  *     
+                                            for n in restruc_scenarios)  *   
+                                            building["dimensions"]["Area"] *
                                             (building["dimensions"]["Window_east"] * 
                                              clustered["solar_e"][d,t] + 
                                              building["dimensions"]["Window_west"] * 
@@ -2545,7 +2546,8 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
         #res_emission_max = max_emi
         res_emission = emission.X / 1000
         
-        res_x_vent = x_vent.X
+        res_x_vent  = x_vent.X
+        res_n_50    = n_50.X
         
         if options["store_start_vals"]:
             with open(options["filename_start_vals"], "w") as fout:
@@ -2586,7 +2588,6 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pickle.dump(res_heat_mod, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_b_sub_restruc, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_x_restruc, fout, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(res_x_vent, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Ht, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Qs, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Qp_DIN, fout, pickle.HIGHEST_PROTOCOL)
@@ -2605,7 +2606,8 @@ def compute(eco, devs, clustered, df_vent, params, options, building, ref_buildi
             pickle.dump(res_n_total, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_v_Inf_wirk, fout, pickle.HIGHEST_PROTOCOL)
             pickle.dump(res_Q_Ht, fout, pickle.HIGHEST_PROTOCOL)
-            
+            pickle.dump(res_x_vent, fout, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(res_n_50, fout, pickle.HIGHEST_PROTOCOL)
     
 
         # Return results

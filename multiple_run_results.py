@@ -14,9 +14,9 @@ from xlwt import Workbook
 
 def overview_results():
     
-    scenarios           = ["benchmark", "free", "free_o_vent", "all_hp_geo", "all_hp_air", "all_chp", "all_chp_pv"]
-    opt_cost            = [0, 1]
-    opt_location        = ["Mannheim", "Hamburg", "Muehldorf"]
+    scenarios           = ["benchmark"]#, "free"]#, "all_hp_geo", "all_hp_air", "all_chp"] # "free_o_vent", "all_chp_pv"
+    opt_cost            = [1]
+    opt_location        = ["Essen"]#, "Hamburg", "Fichtelberg"]
     useable_roofarea    = 0.25
     electricity_demand  = "medium"
     dhw_demand          = "medium"
@@ -36,11 +36,11 @@ def overview_results():
             for cost in range(len(opt_cost)):
                 
                 if cost == 0:
-                    name_cost   = "Emission"
-                    bi_cost     = False  
+                    name_cost   = "Kosten"
+                    bi_cost     = True  
                 else:
-                    name_cost = "Kosten"
-                    bi_cost     = True
+                    name_cost = "Emission"
+                    bi_cost     = False
             
                 name_sheet.write_merge(0+loc*26,0+loc*26,0+cost*15,1+cost*15,               "Optimierung")
                 ws_vent.write(0+loc*11,0+cost*8,                                            "Optimierung")
@@ -100,7 +100,7 @@ def overview_results():
                 ws_cost.write(4+loc*41,6+cost*9,                                            "1958 1978")
                 ws_cost.write(4+loc*41,7+cost*9,                                            "1979 1994")
                 
-                name_sheet.write_merge(5+loc*26,15+loc*26,0+cost*15,0+cost*15,              "Anlagen-technik")
+                name_sheet.write_merge(6+loc*26,16+loc*26,0+cost*15,0+cost*15,              "Anlagen-technik")
                 name_sheet.write(6+loc*26,1+cost*15,                                        "Batterie")
                 name_sheet.write(7+loc*26,1+cost*15,                                        "Kessel")
                 name_sheet.write(8+loc*26,1+cost*15,                                        "BHKW")
@@ -174,10 +174,10 @@ def overview_results():
                     name_sheet.write(5+loc*26,2+2*i+cost*15,                                "Auswahl")
                     name_sheet.write(5+loc*26,3+2*i+cost*15,                                "Leistung")
                     
-                name_sheet.write_merge(16+loc*26,16+loc*26,2+cost*15,13+cost*15,            "Sanierungsmaßnahme")
+#                name_sheet.write_merge(16+loc*26,16+loc*26,2+cost*15,13+cost*15,            "Sanierungsmaßnahme")
                     
-                for building_type in ["ClusterA", "ClusterB"]:
-                    for building_age in ["0 1957", "1958 1978", "1979 1994"]:
+                for building_type in ["ClusterA"]:#, "ClusterB"]:
+                    for building_age in ["0 1957"]:#, "1958 1978", "1979 1994"]:
                         
                         if building_type == "ClusterA":
                             apartment_quantity  = 1
@@ -295,7 +295,7 @@ def overview_results():
                         else:
                             name_sheet.write(13+loc*26,2+cost*15+b_age,                                     "nein")
                             name_sheet.write(13+loc*26,3+cost*15+b_age,                                     0)
-                        if Outputs["x_vent"] == 1:
+                        if Outputs["res_x_vent"] == 1:
                             name_sheet.write(16+loc*26,2+cost*15+b_age,                                     "ja")
                         else:
                             name_sheet.write(16+loc*26,2+cost*15+b_age,                                     "nein")
@@ -333,19 +333,19 @@ def overview_results():
                         
                         for d in range(8):
                             for t in range(24):
-                                yr_av_Q_Ht_count      += Outputs["res_Q_Ht"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
+                                yr_av_Q_Ht_count      += Outputs["res_heat_mod"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                                 yr_av_vent_loss_count += (Outputs["res_Q_vent_loss"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]/
-                                                          (1-Outputs["res_x_vent"])*0.6) #0.6 as Rückwärmezahl                                                               
+                                                          (1-int(Outputs["res_x_vent"])+int(Outputs["res_x_vent"])*0.6)) #0.6 as Rückwärmezahl                                                               
                                 yr_av_vent_inf_count  += Outputs["res_Q_v_Inf_wirk"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                                 yr_av_n_total_count   += Outputs["res_n_total"][(7, 23)][d, t]*Outputs["inputs_clustered"]["weights"][d]
                                 
-                        yr_av_Q_Ht          = yr_av_Q_Ht_count/1000
-                        yr_av_vent_loss     = yr_av_vent_loss_count/1000
-                        yr_av_vent_inf      = yr_av_vent_inf_count/1000
+                        yr_av_Q_Ht          = yr_av_Q_Ht_count
+                        yr_av_vent_loss     = yr_av_vent_loss_count
+                        yr_av_vent_inf      = yr_av_vent_inf_count
                         yr_av_n_total       = yr_av_n_total_count/8760
-                        portion_vent        = yr_av_vent_loss/(yr_av_vent_loss+yr_av_Q_Ht)
+                        portion_vent        = yr_av_vent_loss/yr_av_Q_Ht
                         portion_inf         = yr_av_vent_inf/yr_av_vent_loss
-                        area_spec_heat_loss = (yr_av_Q_Ht_count + yr_av_vent_loss_count)/(apartment_quantity*apartment_size)
+                        area_spec_heat_loss = yr_av_Q_Ht/(apartment_quantity*apartment_size)
                         area_spec_vent_loss = yr_av_vent_loss_count/(apartment_quantity*apartment_size)
                         
                         ws_vent.write(5+loc*11,1+cost*8+b_age_vent,                                            portion_vent)
