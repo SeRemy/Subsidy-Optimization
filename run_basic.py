@@ -240,7 +240,7 @@ if __name__ == "__main__":
     # Building parameters: 
     building_type = "SFH"       # SFH, TH, MFH, AB
     
-    building_age  = "1969 1978" # 0 1859, 1860 1918, 1919 1948, 1949 1957, 
+    building_age  = "2010 2015" # 0 1859, 1860 1918, 1919 1948, 1949 1957, 
                                 # 1958 1968, 1969 1978, 1979 1983, 1984 1994,
                                 # 1995 2001, 2002 2009, 2010 2015, 2016 2100  
     
@@ -250,7 +250,7 @@ if __name__ == "__main__":
                                 # Fichtelberg (Erzgebirge), Mannheim, 
                                 # Mühldorf (München), Stötten (Kempten), Garmisch    
         
-    useable_roofarea  = 0.30    #Default value: 0.25
+    useable_roofarea  = 0.7    #Default value: 0.25
     
     apartment_quantity = 1      # SFH and TH: 1 - Always
                                 # MFH: 4, 6, 8, 10, 12
@@ -271,19 +271,19 @@ if __name__ == "__main__":
     options = {#Optimization of costs (True) or emissions (False)        
                "opt_costs" : True,
                #Subsidy programs               
-               "EEG": True,
-               "kfw_battery": True,
-               "KWKG": True,           
-               "Bafa_chp": True,
+               "EEG": False,
+               "kfw_battery": False,
+               "KWKG": False,           
+               "Bafa_chp": False,
                "Bafa_hp": True,
                "Bafa_stc": True,
                "Bafa_pellet": True,
-               "kfw_eff_buildings" : True,
-               "kfw_single_mea" : True,         
+               "kfw_eff_buildings" : False,
+               "kfw_single_mea" : False,         
                #Further parameters
-               "New_Building" : False,
-               "dhw_electric" : False,
-               "scenario": "s1",
+               "New_Building" : True,
+               "dhw_electric" : True,
+               "scenario": "benchmark",
                "Design_heat_load" : True,
                "store_start_vals" : False,
                "load_start_vals" : False,

@@ -1232,7 +1232,7 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
         
         emissions_grid = eco["el"]["el_sta"]["emi"] * (el_total_hp + el_total_house)
                
-        emissions_feedin = 0.566 * sum(clustered["weights"][d] * dt * 
+        emissions_feedin = eco["el"]["el_sta"]["emi"] * sum(clustered["weights"][d] * dt * 
                                    sum(sum(p_sell[dev,d,t] 
                                    for dev in ("pv","bat","chp"))
                                    for t in time_steps) for d in days)
@@ -2047,11 +2047,16 @@ def compute(eco, devs, clustered, params, options, building, ref_building,
             pass
         
         elif options ["scenario"] == "benchmark":
-            model.addConstr(x["boiler"] == 1)    
-            model.addConstr(x["pv"] == 0)
-            for i in building_components:
-                model.addConstr(x_restruc[i,"standard"] == 1)
-        
+            model.addConstr(x["boiler"] == 0)
+#            model.addConstr(x["pv"] == 0)
+            model.addConstr(x_restruc["Window","standard"] == 1)
+            model.addConstr(x_restruc["GroundFloor","standard"] == 1)
+            model.addConstr(x_restruc["Rooftop","standard"] == 1)
+            model.addConstr(x_restruc["OuterWall","standard"] == 1)
+            model.addConstr(capacity["bat"] == 10)
+#
+            
+
         elif options ["scenario"] == "s1":
 #            for i in building_components:
 #            model.addConstr(x_restruc["Window","retrofit"] == 1)
