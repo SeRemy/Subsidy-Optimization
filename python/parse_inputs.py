@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Sep 20 18:42:33 2015
-@author: Thomas
+@author: srm
 """
 from __future__ import division
 import xlrd
@@ -11,7 +11,7 @@ import numpy as np
 #import statsmodels.api as sm
 import scipy.stats as stats
 from scipy.interpolate import griddata
-
+import pandas as pd
 
 
 def _parse_tariffs(fixed, variable):
@@ -70,10 +70,10 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     sheet_gas  = book.sheet_by_name("gas_economics")
     sheet_el   = book.sheet_by_name("el_economics")
     sheet_pel  = book.sheet_by_name("pel_economics")
+    sheet_oil  = book.sheet_by_name("oil_economics")
     sheet_dev  = book.sheet_by_name("dev_economics")
     sheet_comp = book.sheet_by_name("comp_economics")
     sheet_par  = book.sheet_by_name("further_parameters")
-    sheet_ep   = book.sheet_by_name("ep_table")
             
     eco = {}
     par = {}
@@ -90,12 +90,14 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     eco["prChange"] = {}
     eco["prChange"]["el"]     = sheet_eco.cell_value(4,1)
     eco["prChange"]["gas"]    = sheet_eco.cell_value(5,1)
-    eco["prChange"]["pel"] = sheet_eco.cell_value(6,1)
-    eco["prChange"]["eex"]    = sheet_eco.cell_value(7,1)
-    eco["prChange"]["infl"]   = sheet_eco.cell_value(8,1)
+    eco["prChange"]["pel"]    = sheet_eco.cell_value(6,1)
+    eco["prChange"]["oil"]    = sheet_eco.cell_value(7,1)
+    eco["prChange"]["eex"]    = sheet_eco.cell_value(8,1)
+    eco["prChange"]["infl"]   = sheet_eco.cell_value(9,1)
+
     
-    eco["price_sell_el"] = sheet_eco.cell_value(9,1)
-    eco["energy_tax"]    = sheet_eco.cell_value(10,1)  # in €/kWh
+    eco["price_sell_el"] = sheet_eco.cell_value(10,1)
+    eco["energy_tax"]    = sheet_eco.cell_value(11,1)  # in €/kWh
         
     pC = eco["prChange"]
     eco["b"] = {key: ((1 - (pC[key] / eco["q"]) ** eco["t_calc"]) / 
@@ -106,6 +108,7 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     eco["el"]  = {}
     eco["gas"] = {}
     eco["pel"] = {}
+    eco["oil"] = {}
     
     # Read gas prices
     for i in range(1, sheet_gas.nrows):
@@ -131,7 +134,16 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
         eco["pel"][sheet_pel.cell_value(i,0)] = {"lb": lb, "ub": ub, 
                                                "fix": fix, "var":var}
         eco["pel"][sheet_pel.cell_value(i,0)]["emi"] = float(sheet_pel.cell_value(i,3))
+		
+	# Read oil prices
+    for i in range(1, sheet_oil.nrows):
+        (lb, ub, fix, var) = _parse_tariffs(sheet_oil.cell_value(i,1),
+                                            sheet_oil.cell_value(i,2))
+        eco["oil"][sheet_oil.cell_value(i,0)] = {"lb": lb, "ub": ub, 
+                                               "fix": fix, "var":var}
+        eco["oil"][sheet_oil.cell_value(i,0)]["emi"] = float(sheet_oil.cell_value(i,3))		
     
+	
     # Determine residual values
     for dev in devices.keys():              
         
@@ -188,6 +200,8 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     eco["inst_costs"]["EFH"]["tes"]    = sheet_dev.cell_value(8,1)
     eco["inst_costs"]["EFH"]["bat"]    = sheet_dev.cell_value(9,1)
     eco["inst_costs"]["EFH"]["eh"]    = sheet_dev.cell_value(10,1)
+    eco["inst_costs"]["EFH"]["boiler_gas_old"]    = 0
+    eco["inst_costs"]["EFH"]["boiler_oil_old"]    = 0
     
     eco["inst_costs"]["MFH"] = {}
     eco["inst_costs"]["MFH"]["boiler"] = sheet_dev.cell_value(1,2)
@@ -200,69 +214,17 @@ def read_economics(devices, filename="raw_inputs/economics.xlsx"):
     eco["inst_costs"]["MFH"]["tes"]    = sheet_dev.cell_value(8,2)
     eco["inst_costs"]["MFH"]["bat"]    = sheet_dev.cell_value(9,2)
     eco["inst_costs"]["MFH"]["eh"]     = sheet_dev.cell_value(10,2)
+    eco["inst_costs"]["MFH"]["boiler_gas_old"]    = 0
+    eco["inst_costs"]["MFH"]["boiler_oil_old"]    = 0
                 
     # Further parameters    
     par["mip_gap"]    = sheet_par.cell_value(1,1)
     par["time_limit"] = sheet_par.cell_value(2,1)
     par["rho_w"]      = sheet_par.cell_value(3,1)
-    par["c_w"]        = sheet_par.cell_value(4,1)
-
-
-    # The ep-table gives Information about the expenditure figures of different
-    # combinations of heating technologies    
-    ep_table = {}
-    ep_table["ep"] = {}
-    ep_table["boiler"] = {}
-    ep_table["hp_air"] = {}
-    ep_table["hp_geo"] = {}
-    ep_table["eh"] = {}
-    ep_table["chp"] = {}
-    ep_table["pellet"] = {}
-    ep_table["stc"] = {}
-    ep_table["TVL35"] = {}
-    
-    for n in range(1, sheet_ep.nrows):
-        ep_table["ep"][n] = sheet_ep.cell_value(n,2)
-        ep_table["boiler"][n] = sheet_ep.cell_value(n,3)
-        ep_table["hp_air"][n] = sheet_ep.cell_value(n,4)
-        ep_table["hp_geo"][n] = sheet_ep.cell_value(n,5)
-        ep_table["eh"][n] = sheet_ep.cell_value(n,6)
-        ep_table["chp"][n] = sheet_ep.cell_value(n,7)
-        ep_table["pellet"][n] = sheet_ep.cell_value(n,8)
-        ep_table["stc"][n] = sheet_ep.cell_value(n,9)
-        ep_table["TVL35"][n] = sheet_ep.cell_value(n,10)
-        
-#    vent = read_vent()
+    par["c_w"]        = sheet_par.cell_value(4,1)    
              
-    return (eco, par, devices, ep_table, shell_eco) #, vent
+    return (eco, par, devices, shell_eco)
             
-#def read_vent(filename="raw_inputs/vent.xlsx"):
-#    
-#    book = xlrd.open_workbook(filename)
-#    
-#    sheet_eco  = book.sheet_by_name("eco_params")    
-#    sheet_tec  = book.sheet_by_name("tec_params")
-#    sheet_sci  = book.sheet_by_name("sci_params")
-#    
-#    vent = {}
-#    
-#    vent["eco"] = {}
-#    vent["eco"]["phi_heat_recovery"]    = sheet_eco.cell_value(1,1)
-#    vent["eco"]["price_a"]              = sheet_eco.cell_value(1,1)
-#    vent["eco"]["price_b"]              = sheet_eco.cell_value(1,1)
-#    
-#    vent["tec"] = {}
-#    vent["tec"]["h_w_st"]               = sheet_tec.cell_value(1,1)
-#    vent["tec"]["A_w_tot"]              = sheet_tec.cell_value(2,1)
-#    vent["tec"]["e_z"]                  = sheet_tec.cell_value(3,1)
-#    
-#    vent["sci"] = {}
-#    vent["sci"]["rho_a_ref"]            = sheet_sci.cell_value(1,1)
-#    vent["sci"]["cp_air"]               = sheet_sci.cell_value(2,1)
-#    vent["sci"]["c_wnd"]                = sheet_sci.cell_value(3,1)
-#    vent["sci"]["c_st"]                 = sheet_sci.cell_value(4,1)
-#    
-#    return(vent)
             
 def compute_parameters(par, number_clusters, len_day):
     """
@@ -283,211 +245,8 @@ def compute_parameters(par, number_clusters, len_day):
     par["dt"] = 24 / len_day
     
     return par
-    
-def read_subsidies(economics, filename="raw_inputs/subsidies.xlsx"):
-    """
-    Read in subsdiy parameters.
-    
-    Parameters
-    ----------
-    filename : string, optional
-        Excel-file with the subsidy parameters.
-    
-    Returns
-    -------
-    sub : dictionary
-        Information on subsidy parameters.
-
-    """
-    book           = xlrd.open_workbook(filename)
-    sheet_hp       = book.sheet_by_name("hp")
-    sheet_stc      = book.sheet_by_name("stc")
-    sheet_pellet   = book.sheet_by_name("pellet")
-    sheet_bat      = book.sheet_by_name("bat")
-    sheet_building = book.sheet_by_name("building")
-    sheet_eeg      = book.sheet_by_name("eeg")
-    sheet_kwkg     = book.sheet_by_name("kwkg")
-    sheet_chp      = book.sheet_by_name("chp")
+	
         
-    sub_par = {}
-    
-    # EEG conditions for pv-systems
-    sub_par["eeg"] = {}
-    sub_par["eeg"]["10"]    = sheet_eeg.cell_value(1,1)
-    sub_par["eeg"]["40"]    = sheet_eeg.cell_value(2,1)
-    sub_par["eeg"]["750"]   = sheet_eeg.cell_value(3,1)
-    sub_par["eeg"]["10000"] = sheet_eeg.cell_value(4,1)
-    
-    # Es wird davon ausgegangen, dass die Einnahmen durch die Einspeisevergütung
-    # in jedem Jahr gleich hoch sind und maximal 20 Jahre gezahlt werden. Über
-    # den Faktor sub_par["eeg_temp"] wird der Zinseffekt für die zu unterschiedlichen
-    # Zeitpunkten anfallenden Zahlungen einbezogen. Sofern der Betrachtungszeitraum 
-    # weniger als 20 Jahre beträgt, wird diese hier ebenfalls berücksichtigt.
-    
-    if economics["t_calc"] >= 20:        
-        sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,20))
-    else:         
-        sub_par["eeg_temp"] = sum(1/economics["q"]**n for n in range(1,int(economics["t_calc"]+1)))
-    
-    # KWKG conditions for chps    
-    
-    sub_par["kwkg"] = {}
-#    sub_par["kwkg"]["lump"]       = sheet_kwkg.cell_value(0,1)
-    sub_par["kwkg"]["t_50"]       = sheet_kwkg.cell_value(1,1)
-#    sub_par["kwkg"]["t_100"]      = sheet_kwkg.cell_value(2,1)    
-    
-    sub_par["kwkg"]["self_50"]    = sheet_kwkg.cell_value(3,1)
-#    sub_par["kwkg"]["self_100"]   = sheet_kwkg.cell_value(4,1)
-#    sub_par["kwkg"]["self_250"]   = sheet_kwkg.cell_value(5,1)
-#    sub_par["kwkg"]["self_2000"]  = sheet_kwkg.cell_value(6,1) 
-#    sub_par["kwkg"]["self_10000"] = sheet_kwkg.cell_value(7,1)
-
-    sub_par["kwkg"]["sell_50"]    = sheet_kwkg.cell_value(8,1)
-#    sub_par["kwkg"]["sell_100"]   = sheet_kwkg.cell_value(9,1)
-#    sub_par["kwkg"]["sell_250"]   = sheet_kwkg.cell_value(10,1)
-#    sub_par["kwkg"]["sell_2000"]  = sheet_kwkg.cell_value(11,1)
-#    sub_par["kwkg"]["sell_10000"] = sheet_kwkg.cell_value(12,1)
-    
-#    sub_par["kwkg"]["ave_50"]    = sheet_kwkg.cell_value(13,1)
-#    sub_par["kwkg"]["ave_100"]   = sheet_kwkg.cell_value(14,1)
-#    sub_par["kwkg"]["ave_250"]   = sheet_kwkg.cell_value(15,1)
-#    sub_par["kwkg"]["ave_2000"]  = sheet_kwkg.cell_value(16,1)
-#    sub_par["kwkg"]["ave_10000"] = sheet_kwkg.cell_value(17,1)
-    
-    sub_par["kwkg"]["vls"] = {}
-    sub_par["kwkg"]["vls"]["2500"] = 2500
-    sub_par["kwkg"]["vls"]["3000"] = 3000
-    sub_par["kwkg"]["vls"]["3500"] = 3500
-    sub_par["kwkg"]["vls"]["4000"] = 4000
-    sub_par["kwkg"]["vls"]["4500"] = 4500
-    sub_par["kwkg"]["vls"]["5000"] = 5000
-    sub_par["kwkg"]["vls"]["5500"] = 5500
-    sub_par["kwkg"]["vls"]["6000"] = 6000
-    sub_par["kwkg"]["vls"]["6500"] = 6500
-    
-    sub_par["kwkg"]["i"] = {}
-    for n in (2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500):
-        t = round(sub_par["kwkg"]["t_50"] / n)          
-        if economics["t_calc"] <= t:
-            sub_par["kwkg"]["i"][str(n)] = sum(1/economics["q"]**n for n in range(1,int(economics["t_calc"])+1))
-        else: 
-            sub_par["kwkg"]["i"][str(n)] = sum(1/economics["q"]**n for n in range(1,t+1))
-    
-    # Bafa subsidy for Micro CHP
-    
-    sub_par["bafa_chp"] = {}
-    sub_par["bafa_chp"]["sub_step_1"]  = sheet_chp.cell_value(0,1)
-    sub_par["bafa_chp"]["sub_step_2"]  = sheet_chp.cell_value(1,1)
-    sub_par["bafa_chp"]["sub_step_3"]  = sheet_chp.cell_value(2,1)
-    sub_par["bafa_chp"]["sub_step_4"]  = sheet_chp.cell_value(3,1)
-    sub_par["bafa_chp"]["sub_basic_max"]   = sheet_chp.cell_value(4,1)
-    sub_par["bafa_chp"]["share_therm_eff"] = sheet_chp.cell_value(5,1)
-    sub_par["bafa_chp"]["share_elec_eff"]  = sheet_chp.cell_value(6,1)
-    
-    #KfW program 275 for battery storages
-    sub_par["bat"] = {}
-    sub_par["bat"]["sub_bat_max"] = sheet_bat.cell_value(0,1)
-    sub_par["bat"]["sub_bat"]     = sheet_bat.cell_value(1,1)
-    sub_par["bat"]["share_max"]   = sheet_bat.cell_value(2,1)
-    
-    # Bafa Subsidy conditions for heating pumps
-    sub_par["hp_air"] = {}  
-    sub_par["hp_air"]["max_cap"]      = sheet_hp.cell_value(0,1)
-    sub_par["hp_air"]["basic_fix"]    = sheet_hp.cell_value(2,1)
-    sub_par["hp_air"]["basic_fix_pc"] = sheet_hp.cell_value(3,1)
-    sub_par["hp_air"]["basic_var"]    = sheet_hp.cell_value(4,1)
-    sub_par["hp_air"]["basic_scop"]   = sheet_hp.cell_value(5,1)
-    sub_par["hp_air"]["inno_fix"]     = sheet_hp.cell_value(6,1)
-    sub_par["hp_air"]["inno_fix_pc"]  = sheet_hp.cell_value(7,1)
-    sub_par["hp_air"]["inno_var"]     = sheet_hp.cell_value(8,1)
-    sub_par["hp_air"]["inno_scop"]    = sheet_hp.cell_value(9,1)
-    sub_par["hp_air"]["smart_grid"]   = sheet_hp.cell_value(20,1)
-    sub_par["hp_air"]["stor_restr"]   = sheet_hp.cell_value(21,1) 
-    sub_par["hp_air"]["build_eff"]    = sheet_hp.cell_value(22,1) 
-    
-    sub_par["hp_geo"] = {}
-    sub_par["hp_geo"]["max_cap"]      = sheet_hp.cell_value(0,1)
-    sub_par["hp_geo"]["basic_fix"]    = sheet_hp.cell_value(11,1)
-    sub_par["hp_geo"]["basic_fix_pc"] = sheet_hp.cell_value(12,1)
-    sub_par["hp_geo"]["basic_var"]    = sheet_hp.cell_value(13,1)
-    sub_par["hp_geo"]["basic_scop"]   = sheet_hp.cell_value(14,1)
-    sub_par["hp_geo"]["inno_fix"]     = sheet_hp.cell_value(15,1)
-    sub_par["hp_geo"]["inno_fix_pc"]  = sheet_hp.cell_value(16,1)
-    sub_par["hp_geo"]["inno_var"]     = sheet_hp.cell_value(17,1)
-    sub_par["hp_geo"]["inno_scop"]    = sheet_hp.cell_value(18,1)
-    sub_par["hp_geo"]["smart_grid"]   = sheet_hp.cell_value(20,1)
-    sub_par["hp_geo"]["stor_restr"]   = sheet_hp.cell_value(21,1) 
-    sub_par["hp_geo"]["build_eff"]   = sheet_hp.cell_value(22,1) 
-        
-    #Bafa Subsidy conditions for solarthermal collectors
-    sub_par["stc"] = {}
-    sub_par["stc"]["basic_fix"]       = sheet_stc.cell_value(0,1)
-    sub_par["stc"]["basic_var"]       = sheet_stc.cell_value(1,1)
-    sub_par["stc"]["basic_area_min"]  = sheet_stc.cell_value(2,1)
-    sub_par["stc"]["basic_area_max"]  = sheet_stc.cell_value(3,1)    
-    sub_par["stc"]["inno_existing_b"] = sheet_stc.cell_value(4,1)
-    sub_par["stc"]["inno_new_b"]      = sheet_stc.cell_value(5,1)
-    sub_par["stc"]["inno_area_min"]   = sheet_stc.cell_value(6,1)
-    sub_par["stc"]["inno_area_max"]   = sheet_stc.cell_value(7,1)    
-    sub_par["stc"]["min_storage"]     = sheet_stc.cell_value(8,1)
-    sub_par["stc"]["annual_gain"]     = sheet_stc.cell_value(9,1)
-    sub_par["stc"]["stc_hp_combi"]    = sheet_stc.cell_value(11,1)
-    sub_par["stc"]["build_eff"]       = sheet_stc.cell_value(12,1)
-    
-    #Bafa Subsidy conditions for a pellet heating
-    sub_par["pellet"] = {}
-    sub_par["pellet"]["min_cap"]           = sheet_pellet.cell_value(0,1)
-    sub_par["pellet"]["max_cap"]           = sheet_pellet.cell_value(1,1)
-    sub_par["pellet"]["basic_fix"]         = sheet_pellet.cell_value(2,1)
-    sub_par["pellet"]["basic_storage"]     = sheet_pellet.cell_value(3,1)
-    sub_par["pellet"]["basic_var"]         = sheet_pellet.cell_value(4,1)
-    sub_par["pellet"]["inno_fix_new"]      = sheet_pellet.cell_value(5,1)
-    sub_par["pellet"]["inno_fix_new_stor"] = sheet_pellet.cell_value(6,1)
-    sub_par["pellet"]["inno_fix_old"]      = sheet_pellet.cell_value(7,1)
-    sub_par["pellet"]["inno_fix_old_stor"] = sheet_pellet.cell_value(8,1)
-    sub_par["pellet"]["stor_restr"]        = sheet_pellet.cell_value(9,1)
-    sub_par["pellet"]["stc_pellet_combi"]  = sheet_pellet.cell_value(11,1)
-    sub_par["pellet"]["build_eff"]         = sheet_pellet.cell_value(12,1)
-        
-    #KfW Subsidy conditions for the building envelope
-    sub_par["building"] = {}
-    sub_par["building"]["grant"] = {}
-    sub_par["building"]["share_max"] = {}
-    sub_par["building"]["grant"]["ind_mea"]         = sheet_building.cell_value(1,1)
-    sub_par["building"]["share_max"]["ind_mea"]     = sheet_building.cell_value(1,2)
-    sub_par["building"]["grant"]["kfw_eff_115"]     = sheet_building.cell_value(2,1)
-    sub_par["building"]["share_max"]["kfw_eff_115"] = sheet_building.cell_value(2,2)
-    sub_par["building"]["grant"]["kfw_eff_100"]     = sheet_building.cell_value(3,1)
-    sub_par["building"]["share_max"]["kfw_eff_100"] = sheet_building.cell_value(3,2) 
-    sub_par["building"]["grant"]["kfw_eff_85"]      = sheet_building.cell_value(4,1)
-    sub_par["building"]["share_max"]["kfw_eff_85"]  = sheet_building.cell_value(4,2)
-    sub_par["building"]["grant"]["kfw_eff_70"]      = sheet_building.cell_value(5,1)
-    sub_par["building"]["share_max"]["kfw_eff_70"]  = sheet_building.cell_value(5,2)
-    sub_par["building"]["grant"]["kfw_eff_55"]      = sheet_building.cell_value(6,1)
-    sub_par["building"]["share_max"]["kfw_eff_55"]  = sheet_building.cell_value(6,2)        
-
-    sub_par["building"]["eff_fact_Q"] = {}                                                                                                                      
-    sub_par["building"]["eff_fact_Q"]["kfw_eff_115"] = sheet_building.cell_value(2,3)
-    sub_par["building"]["eff_fact_Q"]["kfw_eff_100"] = sheet_building.cell_value(3,3)
-    sub_par["building"]["eff_fact_Q"]["kfw_eff_85"]  = sheet_building.cell_value(4,3)
-    sub_par["building"]["eff_fact_Q"]["kfw_eff_70"]  = sheet_building.cell_value(5,3)
-    sub_par["building"]["eff_fact_Q"]["kfw_eff_55"]  = sheet_building.cell_value(6,3)
-    
-    sub_par["building"]["eff_fact_H"] = {}                                                                                                                      
-    sub_par["building"]["eff_fact_H"]["kfw_eff_115"] = sheet_building.cell_value(2,4)
-    sub_par["building"]["eff_fact_H"]["kfw_eff_100"] = sheet_building.cell_value(3,4)
-    sub_par["building"]["eff_fact_H"]["kfw_eff_85"]  = sheet_building.cell_value(4,4)
-    sub_par["building"]["eff_fact_H"]["kfw_eff_70"]  = sheet_building.cell_value(5,4)
-    sub_par["building"]["eff_fact_H"]["kfw_eff_55"]  = sheet_building.cell_value(6,4)
-    
-    sub_par["building"]["u_value"] = {}
-    sub_par["building"]["u_value"]["Window"]  = sheet_building.cell_value(9,1)
-    sub_par["building"]["u_value"]["OuterWall"]    = sheet_building.cell_value(10,1)
-    sub_par["building"]["u_value"]["Rooftop"] = sheet_building.cell_value(11,1)
-    sub_par["building"]["u_value"]["GroundFloor"]  = sheet_building.cell_value(12,1)
-    
-    return sub_par
-    
 def read_devices(timesteps, days, 
                  temperature_ambient, temperature_design, solar_irradiation, 
                  days_per_cluster, filename="raw_inputs/devices.xlsx"):
@@ -536,6 +295,7 @@ def read_devices(timesteps, days,
                                      solar_irradiation, days_per_cluster)
     
     return results
+	
 
 def _handle_sheet(sheet, dev, timesteps, days,
                   temperature_ambient, temperature_design,
@@ -654,6 +414,43 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["c_inv_fix"] = lin_reg[1]
         results["c_inv_var"] = lin_reg[0]   # Euro/Watt
         
+    elif dev == "boiler_gas_old":
+        
+        c_inv       = np.array([sheet[i]["c_inv"] for i in keys])
+        c_om        = np.array([sheet[i]["c_om"] for i in keys])
+        heat_output = np.array([sheet[i]["Q_nom"] for i in keys])
+                
+        results["T_op"]      = np.mean([sheet[i]["T_op"] for i in keys])
+        results["mod_lvl"]   = np.mean([sheet[i]["mod_lvl"] for i in keys])
+        results["eta"]       = np.mean([sheet[i]["eta"] for i in keys])
+        
+        results["c_om_rel"]  = 0
+        results["Q_nom_min"] = np.min(heat_output)
+        results["Q_nom_max"] = np.max(heat_output)
+        
+        # Regression: c_inv = slope * heat_output + intercept
+        lin_reg = stats.linregress(x=heat_output, y=c_inv)
+        results["c_inv_fix"] = lin_reg[1]
+        results["c_inv_var"] = lin_reg[0]   # Euro/Watt
+        
+    elif dev == "boiler_oil_old":
+        
+        c_inv       = np.array([sheet[i]["c_inv"] for i in keys])
+        c_om        = np.array([sheet[i]["c_om"] for i in keys])
+        heat_output = np.array([sheet[i]["Q_nom"] for i in keys])
+                
+        results["T_op"]      = np.mean([sheet[i]["T_op"] for i in keys])
+        results["mod_lvl"]   = np.mean([sheet[i]["mod_lvl"] for i in keys])
+        results["eta"]       = np.mean([sheet[i]["eta"] for i in keys])
+        
+        results["c_om_rel"]  = 0
+        results["Q_nom_min"] = np.min(heat_output)
+        results["Q_nom_max"] = np.max(heat_output)
+        
+        # Regression: c_inv = slope * heat_output + intercept
+        lin_reg = stats.linregress(x=heat_output, y=c_inv)
+        results["c_inv_fix"] = lin_reg[1]
+        results["c_inv_var"] = lin_reg[0]   # Euro/Watt
         
     elif dev == "chp":
         
@@ -899,6 +696,7 @@ def _handle_sheet(sheet, dev, timesteps, days,
         results["c_inv_var"] = lin_reg[0]   # Euro/m3
                 
     return results
+	
 
 def _read_sheet(sheet, device, timesteps):
     """
@@ -944,6 +742,24 @@ def _read_sheet(sheet, device, timesteps):
             current_results["k_loss"]    = 0
 
         elif device == "boiler":
+            
+            current_results["Q_nom"]   = sheet.cell_value(row, 1)
+            current_results["mod_lvl"] = sheet.cell_value(row, 2)
+            current_results["c_inv"]   = sheet.cell_value(row, 3)
+            current_results["c_om"]    = sheet.cell_value(row, 4)
+            current_results["T_op"]    = sheet.cell_value(row, 5)
+            current_results["eta"]     = sheet.cell_value(row, 6)
+            
+        elif device == "boiler_gas_old":
+            
+            current_results["Q_nom"]   = sheet.cell_value(row, 1)
+            current_results["mod_lvl"] = sheet.cell_value(row, 2)
+            current_results["c_inv"]   = sheet.cell_value(row, 3)
+            current_results["c_om"]    = sheet.cell_value(row, 4)
+            current_results["T_op"]    = sheet.cell_value(row, 5)
+            current_results["eta"]     = sheet.cell_value(row, 6)
+            
+        elif device == "boiler_oil_old":
             
             current_results["Q_nom"]   = sheet.cell_value(row, 1)
             current_results["mod_lvl"] = sheet.cell_value(row, 2)
@@ -1162,7 +978,6 @@ def retrofit_scenarios():
     heat_trans_resis = {}
     heat_trans_resis["GroundFloor"] = 0.34 # (m2*K)/W
     heat_trans_resis["Rooftop"] = 0.21 # (m2*K)/W - Steildach
-    #heat_trans_resis["Rooftop"] = 0.17 # (m2*K)/W - Flachdach    
     heat_trans_resis["OuterWall"] = 0.17 # (m2*K)/W
     heat_trans_resis["Window"] = 0.17 # (m2*K)/W
         
@@ -1220,9 +1035,6 @@ def retrofit_scenarios():
                            round(tabula_scenarios[a][b][c][d]["thick_insu"] - \
                          tabula_scenarios[a][b]["standard"][d]["thick_insu"],2)
     
-#    tabula_scenarios["TH"] = tabula_scenarios.pop("_TH")
-#    tabula_scenarios["AB"] = tabula_scenarios.pop("_AB")
-
     for a in tabula_scenarios.keys():
         for b in tabula_scenarios[a].keys():
             for c in tabula_scenarios[a][b].keys():
@@ -1239,6 +1051,7 @@ def retrofit_scenarios():
                     None
                     
     return tabula_scenarios
+	
         
 def parse_building_parameters ():
     
@@ -1284,20 +1097,103 @@ def parse_building_parameters ():
                                                 ["Window_west"]  = sheet.cell_value(a,8) / 4
                                                                                                         
     return buildingtypes      
-
-if __name__ == "__main__":
-    timesteps = 24
-    days = 5
-    # Random temperatures between -10 and +20 degC:
-    temperature_ambient = np.random.rand(days, timesteps) * 30 - 10
+	
+	
+def read_vent(filename="raw_inputs/vent.xlsx"):
     
-    temperature_design = -12 # Aachen
+    book = xlrd.open_workbook(filename)
     
-    solar_irradiation = np.random.rand(days, timesteps) * 800
-    solar_irradiation
+    sheet_eco  = book.sheet_by_name("eco_params")    
+    sheet_tec  = book.sheet_by_name("tec_params")
+    sheet_sci  = book.sheet_by_name("sci_params")
+    sheet_n_50_table_1957 = book.sheet_by_name("n_50_table_1957")
+    sheet_x_vent_table = book.sheet_by_name("x_vent_table")
     
-    devs = read_devices(timesteps, days, temperature_ambient,                        
-                        temperature_design=temperature_design,
-                        solar_irradiation=solar_irradiation)
-                        
-    (eco, par, devs, vent) = read_economics(devs)
+    vent = {}
+    
+    vent["eco"] = {}
+    vent["eco"]["phi_heat_recovery"]    = sheet_eco.cell_value(1,1)
+    vent["eco"]["price_a"]              = sheet_eco.cell_value(1,1)
+    vent["eco"]["price_b"]              = sheet_eco.cell_value(1,1)
+    
+    vent["tec"] = {}
+    vent["tec"]["h_w_st"]               = sheet_tec.cell_value(1,1)
+    vent["tec"]["A_w_tot"]              = sheet_tec.cell_value(2,1)
+    vent["tec"]["e_z"]                  = sheet_tec.cell_value(3,1)
+    
+    vent["sci"] = {}
+    vent["sci"]["rho_a_ref"]            = sheet_sci.cell_value(1,1)
+    vent["sci"]["cp_air"]               = sheet_sci.cell_value(2,1)
+    vent["sci"]["c_wnd"]                = sheet_sci.cell_value(3,1)
+    vent["sci"]["c_st"]                 = sheet_sci.cell_value(4,1)
+    vent["sci"]["C_D"]                  = sheet_sci.cell_value(5,1)
+    vent["sci"]["g"]                    = sheet_sci.cell_value(6,1)
+    vent["sci"]["H_gz"]                 = sheet_sci.cell_value(7,1)
+    vent["sci"]["z_0"]                  = sheet_sci.cell_value(8,1)
+    vent["sci"]["ln_H_z"]               = sheet_sci.cell_value(9,1)
+    
+    vent["n_50_table"] = {}
+    vent["n_50_table"] = {}
+ 
+    for l in ["0 1957","1958 1978","1979 1994"]:
+        vent["n_50_table"][l]={}
+        vent["n_50_table"][l]["n_50"]={}
+        vent["n_50_table"][l]["x_vent"]={}
+        for n in ["SFH", "MFH"]:
+            vent["n_50_table"][l][n]={}
+            for m in ["Window", "Rooftop"]:
+                vent["n_50_table"][l][n][m]={}
+                for o in ["standard","retrofit","adv_retr"]:
+                    vent["n_50_table"][l][n][m][o] = {}
+                    
+    for n in range(0,sheet_n_50_table_1957.nrows -3):
+        for l in ["0 1957","1958 1978","1979 1994"]:
+            if l == "0 1957":
+                timetag = "1957"
+            elif l == "1958 1978":
+                timetag = "1978"
+            elif l == "1979 1994":
+                timetag = "1994"
+                
+            sheet_name = book.sheet_by_name("n_50_table_" + timetag)
+                
+            vent["n_50_table"][l]["SFH"]["Window"]["standard"][n] = sheet_name.cell_value(n+3,2)
+            vent["n_50_table"][l]["SFH"]["Window"]["retrofit"][n] = sheet_name.cell_value(n+3,3)
+            vent["n_50_table"][l]["SFH"]["Window"]["adv_retr"][n] = sheet_name.cell_value(n+3,4)
+            vent["n_50_table"][l]["SFH"]["Rooftop"]["standard"][n] = sheet_name.cell_value(n+3,5)
+            vent["n_50_table"][l]["SFH"]["Rooftop"]["retrofit"][n] = sheet_name.cell_value(n+3,6)
+            vent["n_50_table"][l]["SFH"]["Rooftop"]["adv_retr"][n] = sheet_name.cell_value(n+3,7)
+            
+            vent["n_50_table"][l]["MFH"]["Window"]["standard"][n] = sheet_name.cell_value(n+3,8)
+            vent["n_50_table"][l]["MFH"]["Window"]["retrofit"][n] = sheet_name.cell_value(n+3,9)
+            vent["n_50_table"][l]["MFH"]["Window"]["adv_retr"][n] = sheet_name.cell_value(n+3,10)
+            vent["n_50_table"][l]["MFH"]["Rooftop"]["standard"][n] = sheet_name.cell_value(n+3,11)
+            vent["n_50_table"][l]["MFH"]["Rooftop"]["retrofit"][n] = sheet_name.cell_value(n+3,12)
+            vent["n_50_table"][l]["MFH"]["Rooftop"]["adv_retr"][n] = sheet_name.cell_value(n+3,13)
+            
+            vent["n_50_table"][l]["n_50"][n] = sheet_name.cell_value(n+3,1)
+            
+            vent["n_50_table"][l]["x_vent"][n] = sheet_name.cell_value(n+3,14)
+            
+    vent["x_vent_table"]={}
+    vent["x_vent_table"]["x_vent"]={}
+    
+    for comp in ["Window", "Rooftop"]:
+        vent["x_vent_table"][comp]={}
+        for scen in ["standard", "retrofit", "adv_retr"]:
+            vent["x_vent_table"][comp][scen]={}
+            
+    for n in range(0,sheet_x_vent_table.nrows-2):
+        vent["x_vent_table"]["Window"]["standard"][n]   = sheet_x_vent_table.cell_value(n+2,2)
+        vent["x_vent_table"]["Window"]["retrofit"][n]   = sheet_x_vent_table.cell_value(n+2,3)
+        vent["x_vent_table"]["Window"]["adv_retr"][n]   = sheet_x_vent_table.cell_value(n+2,4)
+        vent["x_vent_table"]["Rooftop"]["standard"][n]  = sheet_x_vent_table.cell_value(n+2,5)
+        vent["x_vent_table"]["Rooftop"]["retrofit"][n]  = sheet_x_vent_table.cell_value(n+2,6)
+        vent["x_vent_table"]["Rooftop"]["adv_retr"][n]  = sheet_x_vent_table.cell_value(n+2,7)
+        
+        vent["x_vent_table"]["x_vent"][n]               = sheet_x_vent_table.cell_value(n+2,1)           
+    
+    df_vent=pd.read_csv("raw_inputs/vent/vent_temp_sorted.csv", sep=";", header=0, engine = "python")
+    df_vent.columns=["hour", "<-5", "<0", "<3", "<6", "<9", "<12", "<15", "<18", "<21", "<24", "<27", ">27"]
+    
+    return(vent, df_vent)
